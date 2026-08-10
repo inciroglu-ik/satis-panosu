@@ -4467,9 +4467,17 @@ function tebligBul(yil,ay,marka,danisman){
    filtresi zaten kendiliğinden doğru ayrımı yapar. */
 function karneRoster(marka){
   var set=new Set();
+  /* Bir danışman yıl içinde marka değiştirmiş olabilir (ör. Fiat'tan Arj'a
+     geçmiş) — union yerine, HER danışmanın en SON (en güncel yıl/ay) Aktif
+     satırındaki markaya bakılır; sadece o markanın rosterına eklenir. Böylece
+     eski markasında artık görünmez, sadece güncel markasında görünür. */
+  var sonKayit={};
   (WORK.facts||[]).forEach(function(f){
-    if(f.marka===marka&&f.durum==='Aktif'&&(f.unvan==='Satış Danışmanı'||f.unvan==='Kıdemli Satış Danışmanı'))set.add(f.danisman);
+    if(f.durum!=='Aktif'||!(f.unvan==='Satış Danışmanı'||f.unvan==='Kıdemli Satış Danışmanı'))return;
+    var mevcut=sonKayit[f.danisman];
+    if(!mevcut||(f.yil*100+f.ay)>(mevcut.yil*100+mevcut.ay))sonKayit[f.danisman]=f;
   });
+  Object.keys(sonKayit).forEach(function(d){ if(sonKayit[d].marka===marka)set.add(d); });
   /* Elle "eski çalışan" işaretlenmiş biri Excel/Copilot verisinde artık
      görünmese bile listeden kaybolmasın — kırmızı/işaretli olarak gösterilsin. */
   (WORK.eskiCalisanlar||[]).forEach(function(e){ if(e.marka===marka)set.add(e.danisman); });
