@@ -4729,27 +4729,29 @@ function karneTableHtml(rows,kilitli,isNew,yil,ay,marka,dan){
         +'<td colspan="4" style="color:var(--muted);font-size:11.5px;text-align:left">'+esc(m.not||'Marka bazlı puan/skor — ayrı sistemden kontrol edilir.')+'</td>'
         +'<td>'+durumSel+'</td></tr>';
     }
-    var oran=karneOranHesap(r.hedef,r.gerceklesen);
+    /* Elle değiştirilmiş fiili → değer HER GÖRÜNÜMDE (kesinleşmiş/çıktısı alınmış
+       karneler dahil) manuel değeri gösterir; "✎ elle" işareti + geri alma. */
+    var rGerc=r.gerceklesen, manBadge='';
+    if(m.key==='arac_satis'&&_karneDan){
+      var ov=manuelFiiliBul(marka,_karneDan,yil,ay);
+      if(ov){
+        if(ov.fiili!=null)rGerc=ov.fiili;   /* manuel değer görüntüye hakim (bug fix: 16 görünmeliydi) */
+        manBadge='<span class="manuel-badge" title="Elle girildi: '+esc(fmtTarih(ov.tarih))
+          +(ov.kim?' · '+esc(ov.kim):'')+'">✎ elle'
+          +(kilitli?'':'<b class="manuel-geri" data-manuelgeri="'+esc(marka)+'|'+esc(_karneDan)+'|'+yil+'|'+ay+'" title="Otomatik değere döndür">↺</b>')
+          +'</span>';
+      }
+    }
+    var oran=karneOranHesap(r.hedef,rGerc);
     var oranTxt=oran==null?'—':(Math.round(oran*1000)/10)+'%';
     var oranStyle=oran==null?'':(oran>=1?'color:var(--ok)':'color:var(--bad)');
     /* Hedef ve şube ort. Copilot markalarında kilitli kalır; GERÇEKLEŞEN (fiili)
        ise İK/müdür için her zaman elle düzenlenebilir (kilitli karne hariç). */
     var ro=(kilitli||(m.key==='arac_satis'&&!araSatisManuel))?' readonly':'';
     var roGerc=kilitli?' readonly':'';
-    /* Elle değiştirilmiş fiili → "✎ elle" işareti + geri alma (yalnız fiili satırı). */
-    var manBadge='';
-    if(m.key==='arac_satis'&&_karneDan){
-      var ov=manuelFiiliBul(marka,_karneDan,yil,ay);
-      if(ov){
-        manBadge='<span class="manuel-badge" title="Elle girildi: '+esc(fmtTarih(ov.tarih))
-          +(ov.kim?' · '+esc(ov.kim):'')+(ov._auto!=null?'':'')+'">✎ elle'
-          +(kilitli?'':'<b class="manuel-geri" data-manuelgeri="'+esc(marka)+'|'+esc(_karneDan)+'|'+yil+'|'+ay+'" title="Otomatik değere döndür">↺</b>')
-          +'</span>';
-      }
-    }
     return '<tr>'+labelCell
       +'<td><input type="number" step="any" data-drow="'+m.key+'" data-fld="hedef" value="'+(r.hedef==null?'':r.hedef)+'"'+ro+disAttr+'></td>'
-      +'<td class="gerc-cell"><input type="number" step="any"'+(manBadge?' class="manuel-inp"':'')+' data-drow="'+m.key+'" data-fld="gerceklesen" value="'+(r.gerceklesen==null?'':r.gerceklesen)+'"'+roGerc+disAttr+'>'+manBadge+'</td>'
+      +'<td class="gerc-cell"><input type="number" step="any"'+(manBadge?' class="manuel-inp"':'')+' data-drow="'+m.key+'" data-fld="gerceklesen" value="'+(rGerc==null?'':rGerc)+'"'+roGerc+disAttr+'>'+manBadge+'</td>'
       +'<td class="karne-oran" style="'+oranStyle+'">'+oranTxt+'</td>'
       +'<td><input type="number" step="any" data-drow="'+m.key+'" data-fld="subeOrt" value="'+(r.subeOrt==null?'':r.subeOrt)+'"'+ro+disAttr+'></td>'
       +'<td>'+durumSel+'</td></tr>';
