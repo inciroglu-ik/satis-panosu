@@ -4582,13 +4582,18 @@ function karneFact(marka,danisman,yil,ay){
    yüklendiğinde silinmez, üzerine biner ("✎ elle" işaretiyle görünür). İK
    dilerse tek tıkla temizleyip otomatik değere döner.
    Kayıt: {marka,danisman,yil,ay,fiili,tarih,kim} · anahtar: marka|danisman|yil|ay */
+/* Marka karşılaştırmaları markaNorm ile yapılır: "Peugeot" ≡ "PEUGEOT" ≡ "peugeot".
+   Aksi halde farklı yazımda override auto satıra binmez, çift (sentetik) satır
+   oluşur ve analizlerde çift sayım olur (denetmen bulgusu). */
 function manuelFiiliBul(marka,danisman,yil,ay){
+  var mn=markaNorm(marka);
   return ((WORK&&WORK.manuelFiili)||[]).find(function(o){
-    return o.marka===marka&&o.danisman===danisman&&(+o.yil)===(+yil)&&(+o.ay)===(+ay);})||null;
+    return markaNorm(o.marka)===mn&&o.danisman===danisman&&(+o.yil)===(+yil)&&(+o.ay)===(+ay);})||null;
 }
 /* Copilot/Excel'den gelen HAM (override uygulanmamış) fiili — karşılaştırma için. */
 function karneFactAuto(marka,danisman,yil,ay){
-  return ((VERI.factsAuto)||[]).find(f=>f.marka===marka&&f.danisman===danisman&&f.yil===yil&&f.ay===ay)||null;
+  var mn=markaNorm(marka);
+  return ((VERI.factsAuto)||[]).find(function(f){return markaNorm(f.marka)===mn&&f.danisman===danisman&&f.yil===yil&&f.ay===ay;})||null;
 }
 /* Copilot kapalı markalarda (Opel, Citroen…) yalnızca elle girilmiş değeri döndürür. */
 function manuelFactOnly(marka,danisman,yil,ay){
@@ -4632,13 +4637,14 @@ function fiiliUygula(){
   var auto=((VERI.factsAuto)||[]).filter(function(f){return !lojistikMi(f.unvan);});
   var ov=((WORK&&WORK.manuelFiili)||VERI.manuelFiili||[]);
   var res=auto.map(function(f){return Object.assign({},f);});
-  var idx={}; res.forEach(function(f,i){idx[f.marka+'|'+f.danisman+'|'+f.yil+'|'+f.ay]=i;});
+  /* Anahtar markaNorm ile — yazım farkı (Peugeot/PEUGEOT) override'ı bozmasın. */
+  var idx={}; res.forEach(function(f,i){idx[markaNorm(f.marka)+'|'+f.danisman+'|'+f.yil+'|'+f.ay]=i;});
   ov.forEach(function(o){
-    var k=o.marka+'|'+o.danisman+'|'+(+o.yil)+'|'+(+o.ay);
+    var k=markaNorm(o.marka)+'|'+o.danisman+'|'+(+o.yil)+'|'+(+o.ay);
     if(idx.hasOwnProperty(k)){
       var f=res[idx[k]]; f._auto=f.fiili; f.fiili=o.fiili; f._manuel=o.tarih||true;
     }else{
-      res.push({yil:+o.yil,ay:+o.ay,marka:o.marka,danisman:o.danisman,
+      res.push({yil:+o.yil,ay:+o.ay,marka:markaKanonik(o.marka),danisman:o.danisman,
         hedef:(o.hedef!=null?o.hedef:0),fiili:o.fiili,
         unvan:o.unvan||'Satış Danışmanı',durum:o.durum||'Aktif',
         _manuel:o.tarih||true,_auto:null,_sentetik:true});
@@ -4787,9 +4793,14 @@ function karneKaydet(kesinlestir){
   if(!marka||!yilEl||!ayEl||!danEl||!danEl.value){if(msg)msg.innerHTML='<div class="err-msg">Dönem/Danışman bulunamadı.</div>';return;}
   var yil=+yilEl.value, ay=+ayEl.value, dan=danEl.value;
   var rows=karneOkuFormdan(yil,ay);
+  var plan=(document.getElementById('kPlan')||{}).value||'';
+  if(kesinlestir&&!plan.trim()){if(msg)msg.innerHTML='<div class="err-msg">"Yönetici Değerlendirmesi ve Gelişim Aksiyon Planı" alanı boş bırakılamaz.</div>';return;}
+  if(kesinlestir&&rows.some(r=>!r.durum)){if(msg)msg.innerHTML='<div class="err-msg">Tüm metrikler için Durum seçilmelidir.</div>';return;}
+  var existing=karneBul(yil,ay,marka,dan), now=new Date().toISOString();
+  if(existing&&existing.ciktiTarihi){if(msg)msg.innerHTML='<div class="err-msg">Bu karnenin çıktısı alındı, artık düzenlenemez.</div>';return;}
   /* Araç Satış (fiili) elle değiştirildiyse manuel override kaydet; otomatik
-     (Copilot) değere eşitlendiyse override kaldırılır. İK karnelerde "✎ elle"
-     işaretinden hangi fiilinin elle girildiğini görür; değer analizlere yansır. */
+     (Copilot) değere eşitlendiyse override kaldırılır. Bu blok TÜM guard/return'lerden
+     SONRA çalışır (denetmen bulgusu) — kayıt reddedilirse override'a dokunulmaz. */
   (function(){
     var acRow=rows.find(function(r){return r.key==='arac_satis';});
     if(!acRow)return;
@@ -4803,11 +4814,6 @@ function karneKaydet(kesinlestir){
       if(yeni!=null&&yeni!==autoFiili)manuelFiiliSet(marka,dan,yil,ay,yeni); else manuelFiiliClear(marka,dan,yil,ay);
     }
   })();
-  var plan=(document.getElementById('kPlan')||{}).value||'';
-  if(kesinlestir&&!plan.trim()){if(msg)msg.innerHTML='<div class="err-msg">"Yönetici Değerlendirmesi ve Gelişim Aksiyon Planı" alanı boş bırakılamaz.</div>';return;}
-  if(kesinlestir&&rows.some(r=>!r.durum)){if(msg)msg.innerHTML='<div class="err-msg">Tüm metrikler için Durum seçilmelidir.</div>';return;}
-  var existing=karneBul(yil,ay,marka,dan), now=new Date().toISOString();
-  if(existing&&existing.ciktiTarihi){if(msg)msg.innerHTML='<div class="err-msg">Bu karnenin çıktısı alındı, artık düzenlenemez.</div>';return;}
   if(!existing){
     existing={id:'k'+Date.now().toString(36)+Math.random().toString(36).slice(2,7),yil:yil,ay:ay,marka:marka,danisman:dan,
       yoneticiKullanici:SES.kullanici,yoneticiAd:SES.ad,olusturma:now,kesinlesmeTarihi:null,ciktiTarihi:null,log:[]};
@@ -4850,8 +4856,15 @@ function karneYazdirSatirlar(k){
     if(m.tip==='ozel'){
       return '<tr><td>'+esc(m.ad)+'</td><td colspan="4" style="color:#666;font-size:11px">'+esc(m.not||'')+'</td><td>'+esc(r.durum||'')+'</td></tr>';
     }
-    var oran=karneOranHesap(r.hedef,r.gerceklesen);
-    return '<tr><td>'+esc(m.ad)+'</td><td>'+(r.hedef==null?'—':r.hedef)+'</td><td>'+(r.gerceklesen==null?'—':r.gerceklesen)+'</td>'
+    /* İmzalanan çıktı da manuel override'ı yansıtır (denetmen bulgusu): kesinleşmiş
+       karneye sonradan girilen fiili, kayıtlı eski değeri değil manuel değeri basar. */
+    var gerc=r.gerceklesen;
+    if(m.key==='arac_satis'){
+      var ov=manuelFiiliBul(k.marka,k.danisman,k.yil,k.ay);
+      if(ov&&ov.fiili!=null)gerc=ov.fiili;
+    }
+    var oran=karneOranHesap(r.hedef,gerc);
+    return '<tr><td>'+esc(m.ad)+'</td><td>'+(r.hedef==null?'—':r.hedef)+'</td><td>'+(gerc==null?'—':gerc)+'</td>'
       +'<td>'+(oran==null?'—':(Math.round(oran*1000)/10)+'%')+'</td><td>'+(r.subeOrt==null?'—':r.subeOrt)+'</td><td>'+esc(r.durum||'')+'</td></tr>';
   }).join('');
 }
@@ -6100,8 +6113,12 @@ function doAddUser(){
   });
 }
 function serializeVeri(){
+  /* veri.js'e TEMİZ ham facts yazılır (Firestore push'u ile aynı baseline):
+     override değerleri/sentetik satırlar/işaret alanları gömülmez — bunlar
+     runtime'da fiiliUygula ile uygulanır (denetmen bulgusu). */
   var obj={meta:Object.assign({},WORK.meta,{guncelleme:new Date().toISOString().slice(0,10)}),
-    users:WORK.users,facts:WORK.facts,butce:WORK.butce,butceDetay:WORK.butceDetay||VERI.butceDetay||null,
+    users:WORK.users,facts:(VERI.factsAuto||WORK.facts),manuelFiili:WORK.manuelFiili||[],
+    butce:WORK.butce,butceDetay:WORK.butceDetay||VERI.butceDetay||null,
     karneler:WORK.karneler||[],tebligler:WORK.tebligler||[]};
   return '/* İNCİROĞLU OTOMOTİV — Satış Panosu veri dosyası. */\n'
     +'/* Admin panelinden güncellendi. */\n'
@@ -6510,7 +6527,9 @@ function applyExcelData(res,lastMod){
   var allD=DIM.danismanlar.length&&FLT.danismanlar.size===DIM.danismanlar.length;
   var allA=DIM.aylar.length&&FLT.aylar.size===DIM.aylar.length;
   var allY=DIM.yillar.length&&FLT.yillar.size===DIM.yillar.length;
-  VERI.factsAuto=res.facts; fiiliUygula();
+  /* Lojistik personel kaynağında ayıklanır → hem factsAuto hem Firestore push'u
+     kalıcı temiz kalır (denetmen bulgusu). */
+  VERI.factsAuto=(res.facts||[]).filter(function(f){return !lojistikMi(f.unvan);}); fiiliUygula();
   if(res.butce){VERI.butce=res.butce; if(WORK)WORK.butce=res.butce;}
   if(res.butceDetay){VERI.butceDetay=res.butceDetay; if(WORK)WORK.butceDetay=res.butceDetay;}
   var stamp=new Date(lastMod||Date.now()).toLocaleString('tr-TR');
