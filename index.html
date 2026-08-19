@@ -4401,6 +4401,9 @@ function karneMetrikKilitliMi(yil,ay,key){
 function karneCopilotKapaliMi(marka,yil,ay){
   var m=trFold(marka).replace(/\s+/g,'');
   if(m==='opel')return true;
+  /* Peugeot: yalnızca Temmuz 2026 — İK/müdür Araç Satış Adedi hedef+gerçekleşenini
+     Copilot'tan değil elle girer; girilen değer "✎ elle" işaretiyle görünür. */
+  if(m==='peugeot' && (+yil)===2026 && (+ay)===7)return true;
   return m==='2.el' && (+yil)===2026 && (+ay)>=1 && (+ay)<=6;
 }
 /* Citroen NOT: hedefleri Copilot'tan gelmeye devam eder; yalnızca FİİLİ elle
