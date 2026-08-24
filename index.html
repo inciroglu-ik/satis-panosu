@@ -4638,21 +4638,12 @@ function manuelFiiliGeriAl(marka,danisman,yil,ay){
 function lojistikMi(unvan){return /lojistik/i.test(unvan||'');}
 function fiiliUygula(){
   var auto=((VERI.factsAuto)||[]).filter(function(f){return !lojistikMi(f.unvan);});
-  var ov=((WORK&&WORK.manuelFiili)||VERI.manuelFiili||[]);
+  /* KULLANICI KARARI: "Excel doğru olsun". Manuel "elle fiili" override'ları ARTIK
+     görüntülenen veriye UYGULANMAZ; güncel Excel her zaman kazanır. 14.08.2026 tarihli
+     bayat override'lar (Mini/Arif Yüksel'i BMW'ye yazan hayalet satırlar dahil) Excel'i
+     gölgeleyip fiili toplamını şişiriyordu. Eski override verisi Firestore'da kalsa bile
+     Genel Bakış / Marka / Danışman görünümlerine bir daha etki etmez. */
   var res=auto.map(function(f){return Object.assign({},f);});
-  /* Anahtar markaNorm ile — yazım farkı (Peugeot/PEUGEOT) override'ı bozmasın. */
-  var idx={}; res.forEach(function(f,i){idx[markaNorm(f.marka)+'|'+f.danisman+'|'+f.yil+'|'+f.ay]=i;});
-  ov.forEach(function(o){
-    var k=markaNorm(o.marka)+'|'+o.danisman+'|'+(+o.yil)+'|'+(+o.ay);
-    if(idx.hasOwnProperty(k)){
-      var f=res[idx[k]]; f._auto=f.fiili; f.fiili=o.fiili; f._manuel=o.tarih||true;
-    }else{
-      res.push({yil:+o.yil,ay:+o.ay,marka:markaKanonik(o.marka),danisman:o.danisman,
-        hedef:(o.hedef!=null?o.hedef:0),fiili:o.fiili,
-        unvan:o.unvan||'Satış Danışmanı',durum:o.durum||'Aktif',
-        _manuel:o.tarih||true,_auto:null,_sentetik:true});
-    }
-  });
   VERI.facts=res; if(WORK)WORK.facts=res;
   markaKanonik._map=null;
 }
