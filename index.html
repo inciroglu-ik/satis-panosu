@@ -5899,8 +5899,9 @@ function bindKarneDynamic(){
     var marka=kManuelEkle.dataset.manuelmarka;
     var ad=prompt('Listede görünmeyen ama aktif olan danışmanın adını yazın:');
     if(!ad||!ad.trim())return;
-    manuelDanismanEkle(marka,ad.trim());
-    toast('✓ "'+ad.trim()+'" listeye eklendi.');
+    var adN=trTitle(ad.trim());
+    manuelDanismanEkle(marka,adN);
+    toast('✓ "'+adN+'" listeye eklendi.');
     render();
   };
   var tManuelEkle=document.getElementById('tManuelEkle');
@@ -5908,8 +5909,9 @@ function bindKarneDynamic(){
     var marka=tManuelEkle.dataset.manuelmarka;
     var ad=prompt('Listede görünmeyen ama aktif olan danışmanın adını yazın:');
     if(!ad||!ad.trim())return;
-    manuelDanismanEkle(marka,ad.trim());
-    toast('✓ "'+ad.trim()+'" listeye eklendi.');
+    var adN=trTitle(ad.trim());
+    manuelDanismanEkle(marka,adN);
+    toast('✓ "'+adN+'" listeye eklendi.');
     render();
   };
   document.querySelectorAll('[data-manuelsil]').forEach(function(b){
