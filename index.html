@@ -3722,6 +3722,13 @@ function trLower(s){return s.replace(/İ/g,'i').replace(/I/g,'ı').toLocaleLower
 function trTitle(name){return String(name).trim().split(/\s+/).map(function(w){
   if(!w)return'';var wl=trLower(w);var f=wl[0]; f=(f==='i')?'İ':(f==='ı')?'I':f.toLocaleUpperCase('tr');
   return f+wl.slice(1);}).join(' ');}
+/* Danışman adını tek biçime getirir (büyük/küçük harf ve boşluk duyarsız eşleşme).
+   Böylece "Göktuğ berathan ŞEKER" ile "Göktuğ Berathan Şeker" AYNI danışman sayılır;
+   karne/tebliğ/fiili eşleşmeleri kopmaz ve Excel yüklenince mükerrer danışman oluşmaz.
+   Yalnızca bellekte normalize eder — Firestore'daki kayda dokunmaz. */
+function danCanon(n){return n==null?n:trTitle(String(n));}
+function danNormArr(arr){if(Array.isArray(arr))arr.forEach(function(r){if(r&&r.danisman!=null)r.danisman=danCanon(r.danisman);});}
+function danNormalizeAll(o){if(!o)return;['facts','factsAuto','manuelFiili','karneler','tebligler','eskiCalisanlar','manuelDanismanlar'].forEach(function(k){danNormArr(o[k]);});}
 function statusOf(pct){if(pct==null||!isFinite(pct))return['b-warn','–'];
   if(pct>=1)return['b-ok',fmtPct(pct)];if(pct>=0.8)return['b-warn',fmtPct(pct)];return['b-bad',fmtPct(pct)];}
 
@@ -3791,6 +3798,7 @@ function startApp(){
   /* Ham (Copilot/Excel) fiili anlık görüntüden ayrı saklanır; manuel override'lar
      bunun üzerine uygulanır (bkz. fiiliUygula). */
   if(!VERI.factsAuto)VERI.factsAuto=(VERI.facts||[]).map(function(f){return Object.assign({},f);});
+  danNormalizeAll(WORK); danNormalizeAll(VERI);
   fiiliUygula();
   document.getElementById('login').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -3828,6 +3836,7 @@ function startApp(){
    GitHub'a yeniden yükleme yapılmadan, sayfa açıkken bile. */
 function applyLiveVeri(data){
   if(!data||!data.facts||!SES)return; // giriş yapılmadan DOM hazır değil
+  danNormalizeAll(data);
   markaKanonik._map=null;
   var allM=DIM.markalar.length&&FLT.markalar.size===DIM.markalar.length;
   var allD=DIM.danismanlar.length&&FLT.danismanlar.size===DIM.danismanlar.length;
@@ -3870,6 +3879,7 @@ window.onSatisVeriUpdate=applyLiveVeri;
    kalıyordu. */
 function applyLiveKarneler(list){
   if(!list||!SES)return;
+  danNormArr(list);
   karneYeniGirisKontrol(list);
   WORK.karneler=list; VERI.karneler=list;
   try{localStorage.setItem('sp_karneler',JSON.stringify(list));}catch(_){}
@@ -3880,6 +3890,7 @@ window.onKarnelerUpdate=applyLiveKarneler;
 /* Hedef Tebliğ formları da aynı canlı-veri prensibiyle çalışır (bkz. applyLiveKarneler). */
 function applyLiveTebligler(list){
   if(!list||!SES)return;
+  danNormArr(list);
   tebligYeniGirisKontrol(list);
   WORK.tebligler=list; VERI.tebligler=list;
   try{localStorage.setItem('sp_tebligler',JSON.stringify(list));}catch(_){}
