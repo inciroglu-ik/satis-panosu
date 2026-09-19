@@ -3717,6 +3717,8 @@ function ceyrekOf(ay){return Math.floor((ay-1)/3)+1;}
 function fmtInt(n){return Math.round(n).toLocaleString('tr-TR');}
 function fmtPct(n){return (n==null||!isFinite(n))?'–':(n*100).toFixed(0)+'%';}
 function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
+function markaAd(m){return m==='BPS'?'BORUSAN-NEXT':m;}
+function markaAdList(s){return String(s||'').split(', ').map(markaAd).join(', ');}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function trLower(s){return s.replace(/İ/g,'i').replace(/I/g,'ı').toLocaleLowerCase('tr');}
 function trTitle(name){return String(name).trim().split(/\s+/).map(function(w){
@@ -4048,7 +4050,7 @@ function renderSidebar(){
   var tumuOn=DIM.aylar.length>0&&FLT.aylar.size===DIM.aylar.length;
   qButtons+='<span class="chip q'+(tumuOn?' on':'')+'" data-q="ytd">Tümü</span>';
   var yilChips=DIM.yillar.map(y=>'<span class="chip'+(FLT.yillar.has(y)?' on':'')+'" data-yil="'+y+'">'+y+'</span>').join('');
-  var markaList=DIM.markalar.map(m=>'<label><input type="checkbox" data-marka="'+esc(m)+'"'+(FLT.markalar.has(m)?' checked':'')+'>'+esc(m)+'</label>').join('');
+  var markaList=DIM.markalar.map(m=>'<label><input type="checkbox" data-marka="'+esc(m)+'"'+(FLT.markalar.has(m)?' checked':'')+'>'+esc(markaAd(m))+'</label>').join('');
   // Marka seçiliyse yalnızca o markalara ait danışmanlar; hiç marka seçili
   // değilse TÜM danışmanlar listelenir (marka seçmeden danışman seçilebilsin).
   var markaDan=new Set((VERI.facts||[]).filter(x=>FLT.markalar.has(x.marka)).map(x=>x.danisman));
@@ -4265,7 +4267,7 @@ function viewMarka(rows){
       +'<div class="marka-head">'
         +'<div class="mk-wrap"><div class="mk-top"><span class="badge '+st[0]+'">'+st[1]+'</span>'
           +(bu?'<span class="badge '+stBu[0]+'" data-tip="Bütçeye göre gerçekleşme">B: '+stBu[1]+'</span>':'')+'</div>'
-          +'<div class="mk">'+esc(m)+'</div>'
+          +'<div class="mk">'+esc(markaAd(m))+'</div>'
           +'<div class="mini-gauge" data-tip="Gerçekleşme: <b>'+st[1]+'</b>"><span class="mini-fill '+st[0]+'" style="width:'+Math.max(0,Math.min(100,(oran||0)*100))+'%"></span></div>'
         +'</div>'
         +metric('Bütçe',bu?fmtInt(bu):'—')+metric('İç Hedef',fmtInt(d.hedef))+metric('Fiili',fmtInt(d.fiili))
@@ -4290,7 +4292,7 @@ function viewDanisman(rows){
   list.sort((a,b)=>(a[danSort.k]<b[danSort.k]?-1:a[danSort.k]>b[danSort.k]?1:0)*danSort.dir);
   var arrows=k=>danSort.k===k?(danSort.dir<0?' ↓':' ↑'):'';
   var rowsHtml=list.map(function(x){var st=statusOf(x.oran<0?null:x.oran),mx=Math.max(x.fiili,x.hedef,1);
-    return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(x.marka)+'</td>'
+    return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(markaAdList(x.marka))+'</td>'
       +'<td class="tnum">'+fmtInt(x.hedef)+'</td><td class="tnum bar-cell"><span class="fillbar" style="width:'+(x.fiili/mx*100)+'%"></span>'+fmtInt(x.fiili)+'</td>'
       +'<td><span class="badge '+st[0]+'">'+st[1]+'</span></td><td class="tnum">'+x.tut+' / '+aySay+'</td></tr>';}).join('');
   var detail=selDan?danDetail(rows,selDan):'<div class="empty" style="padding:30px">Detay için tablodan bir danışman seçin.</div>';
@@ -4376,7 +4378,7 @@ function adminSaglik(){
     out+='<h4 style="margin:14px 0 6px;color:var(--ink-2)">Ay boşluğu ('+s.gaps.length+') <span style="font-weight:400;font-size:11px;color:var(--muted)">bilgi amaçlı</span></h4>'
       +'<div class="note">Danışmanın ilk ve son veri ayı arasında veri girilmemiş aylar (işten ayrılma/başlama olabilir).</div>'
       +'<table><thead><tr><th>Marka</th><th style="text-align:left">Danışman</th><th style="text-align:left">Eksik aylar</th></tr></thead><tbody>'
-      +s.gaps.map(function(x){return '<tr><td class="name">'+esc(x.marka)+'</td><td style="text-align:left">'+esc(x.dan)
+      +s.gaps.map(function(x){return '<tr><td class="name">'+esc(markaAdList(x.marka))+'</td><td style="text-align:left">'+esc(x.dan)
         +'</td><td style="text-align:left">'+esc(x.eksik.join(', '))+'</td></tr>';}).join('')
       +'</tbody></table>';
   }
@@ -5324,7 +5326,7 @@ function tebligMudurHtml(marka){
   var danOpts=danOptHtml(roster,marka,tebligSel.yil,tebligSel.ay,tebligSel.dan);
 
   var head='<div class="card"><h3>Hedef Tebliğ Formu</h3>'
-   +'<div class="csub">'+esc(marka)+' — danışman bazında aylık hedefleri tebliğ edin.</div>'
+   +'<div class="csub">'+esc(markaAd(marka))+' — danışman bazında aylık hedefleri tebliğ edin.</div>'
    +banner
    +'<div class="karne-head">'
    +'<div class="fld"><label>Yıl</label><select id="tYil">'+yilOpts+'</select></div>'
@@ -5403,7 +5405,7 @@ function tebligMudurGecmis(marka){
 }
 function tebligAdminListe(){
   var all=(WORK.tebligler||[]).slice();
-  var markaOpts='<option value="">Tüm Markalar</option>'+DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(tebligAdminFlt.marka===m?' selected':'')+'>'+esc(m)+'</option>').join('');
+  var markaOpts='<option value="">Tüm Markalar</option>'+DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(tebligAdminFlt.marka===m?' selected':'')+'>'+esc(markaAd(m))+'</option>').join('');
   var ayOpts='<option value="">Tüm Aylar</option>'+AYLAR.map((a,i)=>'<option value="'+(i+1)+'"'+((''+tebligAdminFlt.ay)===(''+(i+1))?' selected':'')+'>'+a+'</option>').join('');
   var yilList=[...new Set(all.map(t=>t.yil))].sort((a,b)=>b-a);
   var yilOpts='<option value="">Tüm Yıllar</option>'+yilList.map(y=>'<option value="'+y+'"'+((''+tebligAdminFlt.yil)===(''+y)?' selected':'')+'>'+y+'</option>').join('');
@@ -5491,7 +5493,7 @@ function viewKarneMudur(){
   var marka=karneMudurMarkaSec;
   var markaSecici=markaList.length>1
     ?('<div class="chips" style="margin:0 0 14px">'+markaList.map(function(m){
-        return '<span class="chip q'+(m===marka?' on':'')+'" data-mudurmarka="'+esc(m)+'">'+esc(m)+'</span>';
+        return '<span class="chip q'+(m===marka?' on':'')+'" data-mudurmarka="'+esc(m)+'">'+esc(markaAd(m))+'</span>';
       }).join('')+'</div>')
     :'';
   if(karneMudurSub==='dashboard')return sub+markaSecici+karneDashboardHtml({marka:marka,isAdmin:false});
@@ -5510,7 +5512,7 @@ function viewKarneMudurGiris(marka){
   var danOpts=danOptHtml(roster,marka,karneSel.yil,karneSel.ay,karneSel.dan);
 
   var head='<div class="card"><h3>Aylık Performans Değerlendirme Karnesi</h3>'
-   +'<div class="csub">'+esc(marka)+' — yalnızca kendi ekibinizin verilerini girebilirsiniz.</div>'
+   +'<div class="csub">'+esc(markaAd(marka))+' — yalnızca kendi ekibinizin verilerini girebilirsiniz.</div>'
    +'<div class="karne-head">'
    +'<div class="fld"><label>Yıl</label><select id="kYil">'+yilOpts+'</select></div>'
    +'<div class="fld"><label>Ay</label><select id="kAy">'+ayOpts+'</select></div>'
@@ -5585,7 +5587,7 @@ function karneDurumMatrisi(){
   DIM.markalar.forEach(function(marka){
     var roster=karneRoster(marka);
     if(!roster.length)return;
-    rows+='<tr class="dg-marka-row"><td colspan="13">'+esc(marka)+'</td></tr>';
+    rows+='<tr class="dg-marka-row"><td colspan="13">'+esc(markaAd(marka))+'</td></tr>';
     roster.forEach(function(dan){
       var cells='';
       for(var ay=1;ay<=12;ay++){
@@ -5615,7 +5617,7 @@ function karneDurumMatrisi(){
 function karneAdminListe(){
   var matris=karneDurumMatrisi();
   var all=(WORK.karneler||[]).slice();
-  var markaOpts='<option value="">Tüm Markalar</option>'+DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(karneAdminFlt.marka===m?' selected':'')+'>'+esc(m)+'</option>').join('');
+  var markaOpts='<option value="">Tüm Markalar</option>'+DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(karneAdminFlt.marka===m?' selected':'')+'>'+esc(markaAd(m))+'</option>').join('');
   var ayOpts='<option value="">Tüm Aylar</option>'+AYLAR.map((a,i)=>'<option value="'+(i+1)+'"'+((''+karneAdminFlt.ay)===(''+(i+1))?' selected':'')+'>'+a+'</option>').join('');
   var danListe=[...new Set(all.filter(k=>!karneAdminFlt.marka||k.marka===karneAdminFlt.marka).map(k=>k.danisman))].sort((a,b)=>a.localeCompare(b,'tr'));
   var danOpts='<option value="">Tüm Danışmanlar</option>'+danListe.map(d=>'<option value="'+esc(d)+'"'+(karneAdminFlt.danisman===d?' selected':'')+'>'+esc(d)+'</option>').join('');
@@ -5668,7 +5670,7 @@ function karneDashboardHtml(opts){
   var markaSelHtml=fixedMarka!=null
     ? '<div class="fld"><label>Marka</label><input value="'+esc(fixedMarka)+'" disabled></div>'
     : '<div class="fld"><label>Marka</label><select id="kdMarka"><option value="">Tüm Markalar</option>'
-      +DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(karneDashFlt.marka===m?' selected':'')+'>'+esc(m)+'</option>').join('')+'</select></div>';
+      +DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(karneDashFlt.marka===m?' selected':'')+'>'+esc(markaAd(m))+'</option>').join('')+'</select></div>';
   var kesinlesenler=(WORK.karneler||[]).filter(k=>k.durum==='kesinlesen'&&(!effMarka||k.marka===effMarka));
   var danListe=[...new Set(kesinlesenler.map(k=>k.danisman))].sort((a,b)=>a.localeCompare(b,'tr'));
   var danSelHtml='<div class="fld"><label>Danışman (opsiyonel — boşsa marka ortalaması)</label>'
@@ -5749,7 +5751,7 @@ function karneDashboardHtml(opts){
   return head+'<div class="card"><h3>'+baslik+'</h3>'+chartHtml+tablo+'</div>';
 }
 function karneExportHtml(){
-  var markaOpts='<option value="">Tüm Markalar</option>'+DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(karneAdminFlt.marka===m?' selected':'')+'>'+esc(m)+'</option>').join('');
+  var markaOpts='<option value="">Tüm Markalar</option>'+DIM.markalar.map(m=>'<option value="'+esc(m)+'"'+(karneAdminFlt.marka===m?' selected':'')+'>'+esc(markaAd(m))+'</option>').join('');
   var ayOpts='<option value="">Tüm Aylar</option>'+AYLAR.map((a,i)=>'<option value="'+(i+1)+'"'+((''+karneAdminFlt.ay)===(''+(i+1))?' selected':'')+'>'+a+'</option>').join('');
   var durumOpts=[['','Tümü'],['taslak','Taslak'],['kesinlesen','Kesinleşen']]
     .map(o=>'<option value="'+o[0]+'"'+(karneAdminFlt.durum===o[0]?' selected':'')+'>'+o[1]+'</option>').join('');
@@ -6031,7 +6033,7 @@ function adminKullanici(){
   var rows=WORK.users.map((u,i)=>'<tr><td class="name">'+esc(u.kullanici)+'</td><td style="text-align:left">'+esc(u.ad)+'</td>'
     +'<td>'+(ROL_ETIKET[u.rol]||'Görüntüleyici')+(u.rol==='mudur'&&u.marka?' <span style="color:var(--muted);font-weight:400">('+esc(u.marka)+')</span>':'')+'</td>'
     +'<td><button class="btn-sm" data-del="'+i+'"'+(u.kullanici==='admin'?' disabled title="admin silinemez"':'')+'>Sil</button></td></tr>').join('');
-  var markaOpts=DIM.markalar.map(m=>'<option value="'+esc(m)+'">'+esc(m)+'</option>').join('');
+  var markaOpts=DIM.markalar.map(m=>'<option value="'+esc(m)+'">'+esc(markaAd(m))+'</option>').join('');
   return '<div class="card"><h3>Kullanıcılar</h3><div class="csub">Değişiklikler "veri.js İndir" ile kalıcı olur.</div>'
     +'<table><thead><tr><th>Kullanıcı</th><th style="text-align:left">Ad</th><th>Rol</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>'
     +'<h4 style="margin-top:18px;font-size:13px">Yeni Kullanıcı / Şifre Güncelle</h4>'
