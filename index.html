@@ -3717,7 +3717,7 @@ function ceyrekOf(ay){return Math.floor((ay-1)/3)+1;}
 function fmtInt(n){return Math.round(n).toLocaleString('tr-TR');}
 function fmtPct(n){return (n==null||!isFinite(n))?'–':(n*100).toFixed(0)+'%';}
 function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
-function markaAd(m){return m==='BPS'?'BORUSAN-NEXT':m;}
+function markaAd(m){return (m==='BPS'||m==='Bmw Ps')?'BORUSAN-NEXT':m;}
 function markaAdList(s){return String(s||'').split(', ').map(markaAd).join(', ');}
 /* ==================== RESMÎ BÜTÇE HEDEFİ (2026 Eylül–Aralık) ====================
    İK'nın verdiği 7+5 Forecast tablosundaki TOTAL bütçe hedefleri. Panoya bağlı
