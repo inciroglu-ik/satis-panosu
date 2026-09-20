@@ -3717,8 +3717,31 @@ function ceyrekOf(ay){return Math.floor((ay-1)/3)+1;}
 function fmtInt(n){return Math.round(n).toLocaleString('tr-TR');}
 function fmtPct(n){return (n==null||!isFinite(n))?'–':(n*100).toFixed(0)+'%';}
 function el(html){var t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
-function markaAd(m){return m==='BPS'?'BORUSAN-NEXT':m;}
+function markaAd(m){return (m==='BPS'||m==='Bmw Ps')?'BORUSAN-NEXT':m;}
 function markaAdList(s){return String(s||'').split(', ').map(markaAd).join(', ');}
+/* ==================== RESMÎ BÜTÇE HEDEFİ (2026 Eylül–Aralık) ====================
+   İK'nın verdiği 7+5 Forecast tablosundaki TOTAL bütçe hedefleri. Panoya bağlı
+   Excel her 5 sn'de bir Firestore'a eski bütçeyi yazıp güncellememizi ezdiği için
+   (bkz. readExcel otomatik yenileme), bu resmî hedefler burada — kodda — sabitlenir
+   ve butceArr() her okumada bu değerlerle Eylül–Aralık'ın üzerine biner. Böylece
+   hangi Excel bağlı olursa olsun grafikte doğru hedef görünür.
+   Anahtar = grafikte görünen marka (facts markası). Dizi = [Eylül,Ekim,Kasım,Aralık].
+   Yeni hedef geldiğinde SADECE bu tabloyu güncellemen yeterli. */
+var HEDEF_BUTCE_2026={
+  'Peugeot':[75,90,100,120], 'Citroen':[65,75,88,90], 'Opel':[65,80,90,123],
+  'Honda':[11,13,14,14],     'Fiat':[95,125,145,155], 'Arj':[14,14,15,15],
+  'Bmw':[31,37,50,54],       'Mini':[4,4,5,5],        'Bmw Ps':[35,40,45,50],
+  'O & J':[39,39,41,44],     '2.El':[110,115,130,132]
+};
+/* Bir markanın 12 aylık bütçe dizisini döndürür (0=Ocak … 11=Aralık). Eylül–Aralık
+   (indeks 8–11) için resmî hedefi HER ZAMAN uygular. Bütçesi de resmî hedefi de
+   olmayan marka için null döner (grafikte bütçe çubuğu gizli kalsın). */
+function butceArr(m){
+  var base=(VERI&&VERI.butce&&VERI.butce[m])?VERI.butce[m].slice():null;
+  var ov=HEDEF_BUTCE_2026[m];
+  if(ov){ if(!base)base=[0,0,0,0,0,0,0,0,0,0,0,0]; for(var i=0;i<4;i++)base[8+i]=ov[i]; }
+  return base;
+}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function trLower(s){return s.replace(/İ/g,'i').replace(/I/g,'ı').toLocaleLowerCase('tr');}
 function trTitle(name){return String(name).trim().split(/\s+/).map(function(w){
@@ -3938,8 +3961,8 @@ function filtered(){
     &&mOk(x)&&(!effDan.size||effDan.has(x.danisman));});
 }
 function butceToplam(markaSet,aySet){
-  var t=0,bu=VERI.butce||{};
-  markaSet.forEach(function(m){var arr=bu[m];if(arr)aySet.forEach(function(ay){t+=arr[ay-1]||0;});});
+  var t=0;
+  markaSet.forEach(function(m){var arr=butceArr(m);if(arr)aySet.forEach(function(ay){t+=arr[ay-1]||0;});});
   return t;
 }
 function aggBy(rows,key){
@@ -4161,8 +4184,10 @@ function viewGenel(rows,effMarkalar){
     {name:'Fiili',color:'var(--s-fiili)',values:mkKeys.map(k=>byM[k].fiili)},
     {name:'Bütçe',color:'var(--s-butce)',values:mkKeys.map(k=>butceToplam(new Set([k]),aktifAylar()))}
   ],{h:340,w:1500,topLabels:mkYtd});
-  // aylık trend (nokta üzerinde rakam etiketli)
-  var ays=aktifAylar();
+  // aylık trend (nokta üzerinde rakam etiketli) — bütçe hedefi olan ileriki
+  // aylar (Ekim/Kasım/Aralık) da eksene eklenir ki gelecek bütçe görünsün.
+  var ays=aktifAylar().slice();
+  if(!FLT.aylar.size){for(var _tm=1;_tm<=12;_tm++){if(ays.indexOf(_tm)<0&&butceToplam(effMarkalarNF,new Set([_tm]))>0)ays.push(_tm);}ays.sort(function(a,b){return a-b;});}
   var trend=lineChart(ays.map(a=>AYLAR[a-1].slice(0,3)),[
     {name:'İç Hedef',color:'var(--s-hedef)',values:ays.map(a=>rowsNF.filter(r=>r.ay===a).reduce((s,r)=>s+r.hedef,0))},
     {name:'Fiili',color:'var(--s-fiili)',values:ays.map(a=>rowsNF.filter(r=>r.ay===a).reduce((s,r)=>s+r.fiili,0))},
@@ -4242,13 +4267,18 @@ function viewMarka(rows){
     var open=markaOpen[m];
     var body='';
     if(open){
-      var ays=aktifAylar();
+      var buArr=butceArr(m);
+      /* Fiili/iç hedef yalnız veri girilen aylara kadar var (ör. Eylül). Ama bütçe
+         hedefi ileriki aylar için de tanımlı → ay ekseni, o markanın bütçesi olan
+         gelecek ayları da kapsayacak şekilde uzatılır (kullanıcı bir ay filtresi
+         seçmediyse). Böylece Ekim/Kasım/Aralık bütçe hedefleri de grafikte görünür. */
+      var ays=aktifAylar().slice();
+      if(buArr&&!FLT.aylar.size){for(var _bm=1;_bm<=12;_bm++){if(ays.indexOf(_bm)<0&&(buArr[_bm-1]||0)>0)ays.push(_bm);}ays.sort(function(a,b){return a-b;});}
       var mrows=rows.filter(r=>r.marka===m);
       var chartSeries=[
         {name:'İç Hedef',color:'var(--s-hedef)',values:ays.map(a=>mrows.filter(r=>r.ay===a).reduce((s,r)=>s+r.hedef,0))},
         {name:'Fiili',color:'var(--s-fiili)',values:ays.map(a=>mrows.filter(r=>r.ay===a).reduce((s,r)=>s+r.fiili,0))}
       ];
-      var buArr=(VERI.butce||{})[m];
       if(buArr)chartSeries.push({name:'Bütçe',color:'var(--s-butce)',values:ays.map(a=>buArr[a-1]||0)});
       var chart=groupedBar(ays.map(a=>AYLAR[a-1].slice(0,3)),chartSeries,{h:280,w:680});
       var byD=aggBy(mrows,'danisman'),dk=Object.keys(byD).sort((a,b)=>byD[b].fiili-byD[a].fiili);
