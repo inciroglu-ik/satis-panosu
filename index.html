@@ -4685,6 +4685,31 @@ function manuelFiiliGeriAl(marka,danisman,yil,ay){
 /* Lojistik personeli satış panosunda görünmez (satış danışmanı değiller).
    Excel yeniden yüklense bile bu filtre onları her zaman ayıklar. */
 function lojistikMi(unvan){return /lojistik/i.test(unvan||'');}
+/* KULLANICI KARARI: BORUSAN-NEXT (satış verisindeki marka adı "Bmw Ps") YALNIZCA şu
+   danışmanları içerir: Muhammed Orak, Enes Güvenilir (işten ayrıldı), Mehmetcan Coşkun.
+   Satış verisinde bazı 2.EL/FİLO danışmanları TEK bir kullanılmış-BMW satışı yüzünden
+   "Bmw Ps" altında görünüyor (Marka Analizi bir markanın tüm kayıtlarını listeler).
+   Bu yabancı kayıtlar, o danışmanın ASIL markasına (en çok kaydı olan diğer marka) geri
+   yazılır; böylece BORUSAN-NEXT'te sadece gerçek 3 danışman kalır. Yeni Borusan-Next
+   danışmanı gelince aşağıdaki listeye ekle. */
+var BORUSAN_NEXT_DANISMANLAR=['Muhammed Orak','Enes Güvenilir','Mehmetcan Coşkun'];
+function bmwPsDuzelt(facts){
+  if(!facts||!facts.length)return facts;
+  var sayac={}; // danisman -> { marka: kayıt_sayısı }  (Bmw Ps hariç)
+  facts.forEach(function(f){
+    if(f.marka==='Bmw Ps')return;
+    (sayac[f.danisman]=sayac[f.danisman]||{});
+    sayac[f.danisman][f.marka]=(sayac[f.danisman][f.marka]||0)+1;
+  });
+  facts.forEach(function(f){
+    if(f.marka!=='Bmw Ps')return;
+    if(BORUSAN_NEXT_DANISMANLAR.indexOf(f.danisman)>=0)return; // gerçek Borusan-Next danışmanı
+    var m=sayac[f.danisman], best=null, bc=-1;
+    if(m)Object.keys(m).forEach(function(k){if(m[k]>bc){bc=m[k];best=k;}});
+    f.marka=best||'2.El'; // asıl markasına taşı; başka markası yoksa 2.EL
+  });
+  return facts;
+}
 function fiiliUygula(){
   var auto=((VERI.factsAuto)||[]).filter(function(f){return !lojistikMi(f.unvan);});
   /* KULLANICI KARARI: "Excel doğru olsun". Manuel "elle fiili" override'ları ARTIK
@@ -4693,6 +4718,7 @@ function fiiliUygula(){
      gölgeleyip fiili toplamını şişiriyordu. Eski override verisi Firestore'da kalsa bile
      Genel Bakış / Marka / Danışman görünümlerine bir daha etki etmez. */
   var res=auto.map(function(f){return Object.assign({},f);});
+  bmwPsDuzelt(res); // BORUSAN-NEXT'e ait olmayan tekil "Bmw Ps" satışlarını asıl markaya taşı
   VERI.facts=res; if(WORK)WORK.facts=res;
   markaKanonik._map=null;
 }
