@@ -3737,7 +3737,16 @@ var HEDEF_BUTCE_2026={
    (indeks 8–11) için resmî hedefi HER ZAMAN uygular. Bütçesi de resmî hedefi de
    olmayan marka için null döner (grafikte bütçe çubuğu gizli kalsın). */
 function butceArr(m){
-  var base=(VERI&&VERI.butce&&VERI.butce[m])?VERI.butce[m].slice():null;
+  var bu=(VERI&&VERI.butce)||{};
+  var base=bu[m]?bu[m].slice():null;
+  /* "Bmw Ps" (BORUSAN-NEXT) bütçesi kaynak Excel'de "BPS" anahtarına yazılmış; facts
+     adı "Bmw Ps" olduğu için grafik boş görüyordu. Geçmiş ay bütçelerini "BPS"ten
+     tamamla (boş/sıfır aylar için). Eyl–Ara zaten HEDEF_BUTCE_2026 ile eziliyor. */
+  if(m==='Bmw Ps' && bu['BPS']){
+    var alt=bu['BPS'];
+    if(!base)base=alt.slice();
+    else for(var k=0;k<12;k++){ if(!base[k]&&alt[k])base[k]=alt[k]; }
+  }
   var ov=HEDEF_BUTCE_2026[m];
   if(ov){ if(!base)base=[0,0,0,0,0,0,0,0,0,0,0,0]; for(var i=0;i<4;i++)base[8+i]=ov[i]; }
   return base;
