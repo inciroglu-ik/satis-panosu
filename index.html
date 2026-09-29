@@ -3982,8 +3982,16 @@ function danDurum(d){
   if(!DAN_DURUM){DAN_DURUM={};(VERI.facts||[]).forEach(function(r){if(r.danisman&&!DAN_DURUM[r.danisman])DAN_DURUM[r.danisman]=r.durum||'Aktif';});}
   return DAN_DURUM[d]||'Aktif';
 }
+/* eskiCalisanlar listesinde (herhangi bir markada) işaretli danışman da "eski"
+   sayılır → ana ekranlar/analizler dahil her yerde kırmızı "(Eski)" görünür.
+   (danDurum yalnız Excel'deki durum alanına bakıyordu; elle işaretleme buradan gelir.) */
+function ayrildiMi(d){
+  var arr=(typeof WORK!=='undefined'&&WORK&&WORK.eskiCalisanlar)?WORK.eskiCalisanlar
+    :((typeof VERI!=='undefined'&&VERI&&VERI.eskiCalisanlar)?VERI.eskiCalisanlar:[]);
+  return (arr||[]).some(function(e){return e&&e.danisman===d;});
+}
 function danAd(d){
-  var eski=danDurum(d)==='Eski';
+  var eski=danDurum(d)==='Eski'||ayrildiMi(d);
   return eski?'<span class="dan-eski" data-tip="İşten ayrıldı (Eski personel)">'+esc(d)+'</span>':esc(d);
 }
 
