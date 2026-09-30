@@ -3988,7 +3988,7 @@ function danDurum(d){
 function ayrildiMi(d){
   var arr=(typeof WORK!=='undefined'&&WORK&&WORK.eskiCalisanlar)?WORK.eskiCalisanlar
     :((typeof VERI!=='undefined'&&VERI&&VERI.eskiCalisanlar)?VERI.eskiCalisanlar:[]);
-  return (arr||[]).some(function(e){return e&&e.danisman===d;});
+  return (arr||[]).some(function(e){return e&&e.danisman===d;}) || (typeof DANISMAN_BILGI!=='undefined' && DANISMAN_BILGI[d] && DANISMAN_BILGI[d].e===1);
 }
 function danAd(d){
   var eski=danDurum(d)==='Eski'||ayrildiMi(d);
@@ -4326,6 +4326,8 @@ function viewMarka(rows){
 }
 function metric(l,v){return '<div class="metric"><div class="m-l">'+l+'</div><div class="m-v tnum">'+v+'</div></div>';}
 
+var DANISMAN_BILGI={"Ahmet Durdu":{"g":"27.01.2025","e":0,"c":"","n":""},"Ahmet Ferhat Aras":{"g":"","e":1,"c":"31.07.2026","n":"İSTİFA"},"Ahmet Uluocak":{"g":"25.06.2024","e":1,"c":"27.07.2026","n":"PERFORMANS NEDEDİYLE İŞTEN ÇIKIŞ"},"Ahmet Yılmaz":{"g":"22.12.2025","e":0,"c":"","n":""},"Arif Yüksel":{"g":"11.03.2024","e":0,"c":"","n":""},"Aziz Berkay Metin":{"g":"07.09.2022","e":0,"c":"","n":""},"Bekir Hakkomaz":{"g":"05.11.2019","e":0,"c":"","n":""},"Burak Enez Akbucak":{"g":"","e":1,"c":"21.02.2026","n":"HASTALIK SEBEBİYLE İŞTEN ÇIKIŞ"},"Emre Tuğrul":{"g":"19.09.2025","e":0,"c":"","n":""},"Enes Güvenilir":{"g":"","e":1,"c":"12.09.2026","n":"İŞ DEĞİŞİKLİĞİ - ÜCRET"},"Erdem Kan":{"g":"26.02.2024","e":0,"c":"","n":""},"Eyüp Kara":{"g":"20.01.2026","e":0,"c":"","n":""},"Fatih Kara":{"g":"06.08.2020","e":0,"c":"","n":""},"Filiz Kılıç":{"g":"03.06.2024","e":0,"c":"","n":""},"Furkan Benli":{"g":"","e":1,"c":"12.09.2026","n":"İŞ DEĞİŞİKLİĞİ - ÜCRET"},"Gülsen Kapusuz":{"g":"25.04.2024","e":0,"c":"","n":""},"Hüseyin Ünlü":{"g":"05.06.2023","e":0,"c":"","n":""},"Mehmet Akca":{"g":"03.04.2023","e":0,"c":"","n":""},"Mehmet Çağrı Fındıkçı":{"g":"","e":1,"c":"11.05.2026","n":"PERFORMANS NEDENİYLE İŞVEREN FESHİ"},"Meltem Çimen":{"g":"22.12.2025","e":0,"c":"","n":"","r":1},"Muhammed Orak":{"g":"13.05.2024","e":0,"c":"","n":""},"Muhammet Ünlü":{"g":"","e":1,"c":"20.07.2026","n":"İŞVEREN FESHİ OLACAKTI İSTİFA ETTİ"},"Murat Tunç":{"g":"","e":1,"c":"17.01.2026","n":"İŞ DEĞİŞİKLİĞİ"},"Mustafa Sakitaş":{"g":"","e":1,"c":"30.03.2026","n":"ASKERLİK SEBEBİ İLE İŞTEN ÇIKIŞ"},"Nuri Emirimam":{"g":"","e":1,"c":"27.02.2026","n":"PERFORMASN NEDENİYLE"},"Nurten Kevser Yılmaz":{"g":"01.04.2021","e":0,"c":"","n":""},"Onur Durmuş":{"g":"17.09.2025","e":0,"c":"","n":""},"Onurhan İlaslan":{"g":"25.07.2022","e":1,"c":"17.09.2026","n":"İŞVEREN FESHİ"},"Osman Sami Özkes":{"g":"15.04.2025","e":0,"c":"","n":""},"Osman Üstüner":{"g":"20.08.2024","e":0,"c":"","n":""},"Raife Aşan Karakız":{"g":"01.02.2023","e":0,"c":"","n":""},"Saitcan Karabulut":{"g":"02.03.2026","e":0,"c":"","n":""},"Sakine Şenyüz":{"g":"01.12.2025","e":0,"c":"","n":""},"Semih Pekacar":{"g":"","e":1,"c":"7.08.2026","n":"İŞ DEĞİŞİKLİĞİ - ÜCRET"},"Semra Türkmen":{"g":"01.06.2017","e":0,"c":"","n":""},"Sena Hacer Yücel":{"g":"25.09.2025","e":1,"c":"27.02.2026","n":"PERFORMANS"},"Seyithan Temizsoy":{"g":"29.11.2024","e":0,"c":"","n":""},"Tarık Maraşlı":{"g":"22.12.2025","e":0,"c":"","n":""},"Tolgahan Tarık Ayata":{"g":"19.03.2025","e":0,"c":"","n":""},"Ufuk Yalçın":{"g":"","e":1,"c":"8.09.2026","n":"İHTAR ÇEKTİ ANLAŞILDI KIDEM ÖDENDİ"},"Yakup Atay":{"g":"05.01.2023","e":0,"c":"","n":""},"Yavuz Selim Kılıçaslan":{"g":"26.12.2022","e":0,"c":"","n":""},"Zehra Araz":{"g":"12.04.2011","e":0,"c":"","n":""},"Çavuş Karakaya":{"g":"02.08.2023","e":0,"c":"","n":""},"Ömer Erdoğdu":{"g":"28.11.2023","e":0,"c":"","n":""},"Ömer Gün":{"g":"12.05.2026","e":0,"c":"","n":""},"Ümit Dayandaç":{"g":"05.05.2025","e":0,"c":"","n":""},"İbrahim Çakır":{"g":"16.09.2024","e":0,"c":"","n":""},"İzzet Bora Var":{"g":"03.02.2025","e":0,"c":"","n":""},"Şükrü Sevim":{"g":"23.11.2021","e":0,"c":"","n":""}};
+function danBilgi(d){return DANISMAN_BILGI[d]||{g:'',e:0,c:'',n:''};}
 function viewDanisman(rows){
   var byD=aggBy(rows,'danisman');
   var aySay=aktifAylar().length;
@@ -4334,19 +4336,21 @@ function viewDanisman(rows){
     var ays=aktifAylar(), tut=0;
     ays.forEach(function(a){var rr=rows.filter(r=>r.danisman===k&&r.ay===a);
       var h=rr.reduce((s,r)=>s+r.hedef,0),f=rr.reduce((s,r)=>s+r.fiili,0);if(h>0&&f>=h)tut++;});
-    return {dan:k,marka:[...d.markalar].join(', '),hedef:d.hedef,fiili:d.fiili,oran:oran==null?-1:oran,tut:tut};
+    var bi=danBilgi(k);var eski=(danDurum(k)==='Eski')||ayrildiMi(k)||(bi.e?true:false);var gs=bi.g?bi.g.split('.').reverse().join(''):'0';
+    return {dan:k,marka:[...d.markalar].join(', '),hedef:d.hedef,fiili:d.fiili,oran:oran==null?-1:oran,tut:tut,giris:bi.g||'',girisSort:gs,eski:eski?1:0,cikis:bi.c||'',neden:bi.n||'',rot:bi.r||0};
   });
   list.sort((a,b)=>(a[danSort.k]<b[danSort.k]?-1:a[danSort.k]>b[danSort.k]?1:0)*danSort.dir);
   var arrows=k=>danSort.k===k?(danSort.dir<0?' ↓':' ↑'):'';
   var rowsHtml=list.map(function(x){var st=statusOf(x.oran<0?null:x.oran),mx=Math.max(x.fiili,x.hedef,1);
-    return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(markaAdList(x.marka))+'</td>'
+    return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(markaAdList(x.marka))+'</td>'+'<td class="tnum">'+(x.giris?esc(x.giris):'—')+'</td>'+'<td style="text-align:left">'+(x.rot?'<b style="color:var(--s-butce)">Rotasyon</b>':(x.eski?((x.cikis||x.neden)?('<b style="color:var(--bad)">Çıkış: '+esc(x.cikis||'—')+'</b>'+(x.neden?'<div style="font-size:10px;color:var(--ink-2)">'+esc(x.neden)+'</div>':'')):'<b style="color:var(--bad)">Eski</b>'):'<b style="color:var(--ok)">Aktif</b>'))+'</td>'
       +'<td class="tnum">'+fmtInt(x.hedef)+'</td><td class="tnum bar-cell"><span class="fillbar" style="width:'+(x.fiili/mx*100)+'%"></span>'+fmtInt(x.fiili)+'</td>'
       +'<td><span class="badge '+st[0]+'">'+st[1]+'</span></td><td class="tnum">'+x.tut+' / '+aySay+'</td></tr>';}).join('');
   var detail=selDan?danDetail(rows,selDan):'<div class="empty" style="padding:30px">Detay için tablodan bir danışman seçin.</div>';
   return '<div class="grid2"><div class="card" style="margin-bottom:0"><h3>Danışman Performansı</h3>'
     +'<div class="csub">Başlığa tıklayarak sırala · satıra tıklayarak detay</div>'
     +'<div class="tablewrap"><table><thead><tr>'
-    +'<th data-sort="dan">Danışman'+arrows('dan')+'</th><th style="text-align:left">Marka</th>'
+    +'<th data-sort="dan">Danışman'+arrows('dan')+'</th><th data-sort="marka" style="text-align:left">Marka'+arrows('marka')+'</th>'
+    +'<th data-sort="girisSort">İşe Giriş'+arrows('girisSort')+'</th><th data-sort="eski" style="text-align:left">Durum'+arrows('eski')+'</th>'
     +'<th data-sort="hedef">Hedef'+arrows('hedef')+'</th><th data-sort="fiili">Fiili'+arrows('fiili')+'</th>'
     +'<th data-sort="oran">Gerç.'+arrows('oran')+'</th><th data-sort="tut">Hedef Ay'+arrows('tut')+'</th>'
     +'</tr></thead><tbody>'+rowsHtml+'</tbody></table></div></div>'
