@@ -4582,7 +4582,10 @@ function karneRoster(marka){
     var mevcut=sonKayit[f.danisman];
     if(!mevcut||(f.yil*100+f.ay)>(mevcut.yil*100+mevcut.ay))sonKayit[f.danisman]=f;
   });
-  Object.keys(sonKayit).forEach(function(d){ if(markaEslesir(sonKayit[d].marka,marka))set.add(d); });
+  Object.keys(sonKayit).forEach(function(d){
+    var evMarka=ROSTER_MARKA_OVERRIDE[d]||sonKayit[d].marka;
+    if(markaEslesir(evMarka,marka))set.add(d);
+  });
   /* Elle "eski çalışan" işaretlenmiş biri Excel/Copilot verisinde artık
      görünmese bile listeden kaybolmasın — kırmızı/işaretli olarak gösterilsin. */
   (WORK.eskiCalisanlar||[]).forEach(function(e){ if(markaEslesir(e.marka,marka))set.add(e.danisman); });
@@ -4723,6 +4726,13 @@ function lojistikMi(unvan){return /lojistik/i.test(unvan||'');}
    yazılır; böylece BORUSAN-NEXT'te sadece gerçek 3 danışman kalır. Yeni Borusan-Next
    danışmanı gelince aşağıdaki listeye ekle. */
 var BORUSAN_NEXT_DANISMANLAR=['Muhammed Orak','Enes Güvenilir','Mehmetcan Coşkun'];
+/* Bazı danışmanların satış verisinde birden fazla marka kaydı bulunur (ör. BMW
+   Motorrad danışmanı ara sıra tek bir BMW otomobil de satmış → "Bmw" kayıtları
+   oluşur). Karne/Tebliğ ROSTERINDA kişi, ASIL bağlı olduğu markada görünmeli;
+   yoksa "en son kayıt" mantığı onu yanlış markaya (ör. Osman'ı BMW'ye) koyar ve
+   kendi müdürünün (Motorrad) listesinden düşer. Bu override YALNIZCA roster
+   eşleşmesini etkiler — satış/analiz/karne verisine DOKUNMAZ. */
+var ROSTER_MARKA_OVERRIDE={'Osman Sami Özkes':'Bmw Motorrad'};
 function bmwPsDuzelt(facts){
   if(!facts||!facts.length)return facts;
   var sayac={}; // danisman -> { marka: kayıt_sayısı }  (Bmw Ps hariç)
