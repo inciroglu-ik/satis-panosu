@@ -465,7 +465,7 @@ window.VERI = {
    "kullanici": "hayri.karahisarli",
    "ad": "Hayri Karahisarlı",
    "rol": "mudur",
-   "marka": "BPS",
+   "marka": "BPS,Bmw Motorrad",
    "hash": "7a98830878816625e2a2c6bb89ba37d5d6a0b20e87f96135fcd5795d2e2527a3"
   },
   {
@@ -4563,24 +4563,33 @@ function tebligBul(yil,ay,marka,danisman){
    filtresi zaten kendiliğinden doğru ayrımı yapar. */
 function karneRoster(marka){
   var set=new Set();
+  /* Durum/marka karşılaştırması büyük-küçük harf ve yazım farkına DAYANIKLI olmalı:
+     - durum facts'te Excel'den "aktif" (küçük harf) de gelebilir; eski kod yalnız
+       "Aktif" (büyük A) kabul ediyordu → canlı veride TÜM roster boşalıyordu.
+     - aynı marka farklı yazımla kayıtlı olabilir: hesap "BPS" ↔ facts "Bmw Ps"
+       (BORUSAN-NEXT), ya da "FIAT" ↔ "Fiat". markaAd BORUSAN-NEXT takma adlarını,
+       markaNorm ise harf/boşluk/noktalama farkını köprüler. */
+  var aktifMi=function(d){return String(d||'').toLowerCase()==='aktif';};
+  var unvanOk=function(u){return u==='Satış Danışmanı'||u==='Kıdemli Satış Danışmanı';};
+  var markaEslesir=function(a,b){return a===b||markaAd(a)===markaAd(b)||markaNorm(a)===markaNorm(b);};
   /* Bir danışman yıl içinde marka değiştirmiş olabilir (ör. Fiat'tan Arj'a
      geçmiş) — union yerine, HER danışmanın en SON (en güncel yıl/ay) Aktif
      satırındaki markaya bakılır; sadece o markanın rosterına eklenir. Böylece
      eski markasında artık görünmez, sadece güncel markasında görünür. */
   var sonKayit={};
   (WORK.facts||[]).forEach(function(f){
-    if(f.durum!=='Aktif'||!(f.unvan==='Satış Danışmanı'||f.unvan==='Kıdemli Satış Danışmanı'))return;
+    if(!aktifMi(f.durum)||!unvanOk(f.unvan))return;
     var mevcut=sonKayit[f.danisman];
     if(!mevcut||(f.yil*100+f.ay)>(mevcut.yil*100+mevcut.ay))sonKayit[f.danisman]=f;
   });
-  Object.keys(sonKayit).forEach(function(d){ if(sonKayit[d].marka===marka)set.add(d); });
+  Object.keys(sonKayit).forEach(function(d){ if(markaEslesir(sonKayit[d].marka,marka))set.add(d); });
   /* Elle "eski çalışan" işaretlenmiş biri Excel/Copilot verisinde artık
      görünmese bile listeden kaybolmasın — kırmızı/işaretli olarak gösterilsin. */
-  (WORK.eskiCalisanlar||[]).forEach(function(e){ if(e.marka===marka)set.add(e.danisman); });
+  (WORK.eskiCalisanlar||[]).forEach(function(e){ if(markaEslesir(e.marka,marka))set.add(e.danisman); });
   /* Excel'in Fiili sayfası o ay hiç satışı olmayan danışmanı içermediği için
      bazı aktif danışmanlar facts'te HİÇ görünmeyebilir — müdürün "Listede
      Olmayan Danışman Ekle" ile elle eklediği isimler burada tamamlanır. */
-  (WORK.manuelDanismanlar||[]).forEach(function(e){ if(e.marka===marka)set.add(e.danisman); });
+  (WORK.manuelDanismanlar||[]).forEach(function(e){ if(markaEslesir(e.marka,marka))set.add(e.danisman); });
   return [...set].sort((a,b)=>a.localeCompare(b,'tr'));
 }
 /* Bir danışman, seçilen marka için, verilen yıl/ay VEYA sonrası için "eski
