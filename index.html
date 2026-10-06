@@ -4599,8 +4599,13 @@ function karneRoster(marka){
    çalışan" olarak işaretlenmişse true döner (işaretlendiği aydan itibaren
    kırmızı gösterilir; öncesindeki aylarda hâlâ normal/aktif görünür). */
 function eskiCalisanMi(marka,danisman,yil,ay){
+  /* Marka karşılaştırması esnek olmalı: eski çalışan işareti "CITROEN" (büyük harf)
+     kaydedilmiş, müdürün markası ise "Citroen" olabilir. karneRoster roster'a eklerken
+     zaten markaAd/markaNorm ile esnek eşleştiriyor; bu fonksiyon da aynı mantığı
+     kullanmazsa işaretli kişi "(Eski Çalışan)" etiketini alamaz ve aktif gibi görünür. */
+  var esl=function(a,b){return a===b||markaAd(a)===markaAd(b)||markaNorm(a)===markaNorm(b);};
   return (WORK.eskiCalisanlar||[]).some(function(e){
-    return e.marka===marka&&e.danisman===danisman&&(yil*100+(+ay))>=(e.yil*100+(+e.ay));
+    return esl(e.marka,marka)&&e.danisman===danisman&&(yil*100+(+ay))>=(e.yil*100+(+e.ay));
   });
 }
 function eskiCalisanSaveLocal(){try{localStorage.setItem('sp_eskicalisanlar',JSON.stringify(WORK.eskiCalisanlar||[]));}catch(_){}}
@@ -4639,17 +4644,20 @@ function danOptHtml(roster,marka,yil,ay,secili){
 /* Marka müdürünün "işten ayrıldı" işaretlemesini kendi başına yönetebilmesi için
    dropdown'un altına eklenen küçük kontrol — mevcut işaretliler + yeni ekle butonu. */
 function eskiCalisanYonetimHtml(marka,idPrefix){
-  var flagli=(WORK.eskiCalisanlar||[]).filter(function(e){return e.marka===marka;});
+  /* Marka esnek eşleşir (ör. işaret "CITROEN", müdür markası "Citroen"); kaldırma
+     butonu ise işareti bulabilmek için KAYITLI markayı (e.marka) taşır. */
+  var esl=function(a,b){return a===b||markaAd(a)===markaAd(b)||markaNorm(a)===markaNorm(b);};
+  var flagli=(WORK.eskiCalisanlar||[]).filter(function(e){return esl(e.marka,marka);});
   var eskiRows=flagli.map(function(e){
     return '<span class="k-badge" style="background:var(--bad);color:#fff;margin:3px 6px 0 0;display:inline-flex;align-items:center;gap:6px">'
       +esc(e.danisman)+' — '+AYLAR[e.ay-1]+' '+e.yil+'\'den itibaren eski çalışan'
-      +'<button type="button" data-eskisil="'+esc(marka)+'|'+esc(e.danisman)+'" title="İşareti kaldır" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1">×</button></span>';
+      +'<button type="button" data-eskisil="'+esc(e.marka)+'|'+esc(e.danisman)+'" title="İşareti kaldır" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1">×</button></span>';
   }).join('');
-  var manuel=(WORK.manuelDanismanlar||[]).filter(function(e){return e.marka===marka;});
+  var manuel=(WORK.manuelDanismanlar||[]).filter(function(e){return esl(e.marka,marka);});
   var manuelRows=manuel.map(function(e){
     return '<span class="k-badge" style="background:var(--ok);color:#fff;margin:3px 6px 0 0;display:inline-flex;align-items:center;gap:6px">'
       +esc(e.danisman)+' — elle eklendi'
-      +'<button type="button" data-manuelsil="'+esc(marka)+'|'+esc(e.danisman)+'" title="Kaldır" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1">×</button></span>';
+      +'<button type="button" data-manuelsil="'+esc(e.marka)+'|'+esc(e.danisman)+'" title="Kaldır" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1">×</button></span>';
   }).join('');
   return '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'
     +'<button type="button" class="btn-sm" id="'+idPrefix+'EskiEkle" data-eskimarka="'+esc(marka)+'">🚫 İşten Ayrılan Danışmanı İşaretle</button>'
@@ -5402,14 +5410,17 @@ function tebligRedGonder(id){
   if(window.SatisFB)window.SatisFB.pushTeblig(t).then(function(){toast('✓ Kayıt İnsan Kaynakları\'na gönderildi.');}).catch(function(e){toast('⚠ Canlı panoya yazılamadı: '+e.message);});
 }
 function tebligMudurHtml(marka){
-  var roster=karneRoster(marka);
   if(!tebligSel.yil)tebligSel.yil=DIM.yillar.length?DIM.yillar[DIM.yillar.length-1]:new Date().getFullYear();
   if(!tebligSel.ay)tebligSel.ay=new Date().getMonth()+1;
+  /* Hedef Tebliğ YALNIZ aktif danışmanlar içindir: seçili dönemde işten ayrılmış (eski)
+     danışmanlar hedef tebliği listesinden çıkarılır. eskiCalisanMi dönem-duyarlı olduğu
+     için, kişi ayrıldığı aydan ÖNCEki dönemlerin tebliğinde hâlâ seçilebilir kalır. */
+  var roster=karneRoster(marka).filter(function(d){return !eskiCalisanMi(marka,d,tebligSel.yil,tebligSel.ay);});
   if(!tebligSel.dan||roster.indexOf(tebligSel.dan)<0)tebligSel.dan=roster[0]||null;
 
   var bugunGun=new Date().getDate();
   var buAy=new Date().getMonth()+1, buYil=new Date().getFullYear();
-  var eksikSayisi=roster.filter(function(d){var t=tebligBul(buYil,buAy,marka,d);return !t||!t.tebligEdildiMi;}).length;
+  var eksikSayisi=karneRoster(marka).filter(function(d){if(eskiCalisanMi(marka,d,buYil,buAy))return false;var t=tebligBul(buYil,buAy,marka,d);return !t||!t.tebligEdildiMi;}).length;
   var banner='';
   if(bugunGun<=7&&eksikSayisi>0){
     banner='<div class="note" style="border-color:var(--bad);color:var(--bad);background:rgba(200,60,60,.08);margin-bottom:14px">'
