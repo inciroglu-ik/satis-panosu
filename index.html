@@ -323,6 +323,29 @@ td.name{font-weight:600;color:var(--ink)}
   .card{box-shadow:none;border:1px solid #ddd;page-break-inside:avoid}
 }
 </style>
+<style>
+/* ===== Karne akışı: adım şeridi + yeni Performans Panosu (lacivert / pirinç) ===== */
+.subtabs.kk-adimlar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px;margin:0 0 16px;border:0;border-radius:16px;background:radial-gradient(120% 140% at 85% 0%,#1d3d63 0%,#0e1f37 42%,#0a182c 100%);box-shadow:0 10px 28px rgba(10,24,44,.16)}
+.subtabs.kk-adimlar.kk-4{grid-template-columns:repeat(3,minmax(0,1fr)) auto}
+.subtabs.kk-adimlar.kk-bitisik{margin-bottom:0;border-radius:16px 16px 0 0;box-shadow:none}
+.kk-adimlar .subtab.kk-adim{all:unset;box-sizing:border-box;position:relative;display:flex;align-items:center;gap:12px;min-width:0;padding:11px 14px;border-radius:12px;cursor:pointer;color:#f3f6fb;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;transition:background .2s,box-shadow .2s}
+.kk-adimlar .subtab.kk-adim:hover{background:rgba(255,255,255,.06)}
+.kk-adimlar .subtab.kk-adim.on{background:rgba(207,167,90,.10);box-shadow:inset 0 0 0 1px rgba(207,167,90,.55)}
+.kk-adimlar .subtab.kk-adim:focus-visible,.kk-adimlar .subtab.kk-ek:focus-visible{outline:2px solid #cfa75a;outline-offset:2px}
+.kk-adimlar .subtab.kk-adim:not(:last-of-type)::after{content:'';position:absolute;right:-10px;top:50%;width:7px;height:7px;border-top:1.5px solid #cfa75a;border-right:1.5px solid #cfa75a;transform:translateY(-50%) rotate(45deg)}
+.kk-no{flex:none;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:600;font-size:13px;color:#c3d0e4;box-shadow:inset 0 0 0 1.5px rgba(191,205,226,.35)}
+.kk-adim.tamam .kk-no{color:#e0c38a;background:rgba(207,167,90,.14);box-shadow:inset 0 0 0 1.5px #cfa75a}
+.kk-adim.on .kk-no{background:#b98b37;color:#1d1405;box-shadow:0 0 14px rgba(207,167,90,.45)}
+.kk-m{display:flex;flex-direction:column;min-width:0;text-align:left}
+.kk-m b{font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kk-m small{font-size:12px;color:#9fb1cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.kk-adimlar .subtab.kk-ek{all:unset;box-sizing:border-box;align-self:center;padding:9px 14px;border-radius:10px;cursor:pointer;color:#e0c38a;font:600 13px Inter,system-ui,sans-serif;box-shadow:inset 0 0 0 1px rgba(207,167,90,.45);white-space:nowrap}
+.kk-adimlar .subtab.kk-ek.on{background:#b98b37;color:#1d1405}
+.kk-perf{display:block;width:100%;height:1600px;border:0;border-radius:0 0 16px 16px;background:#f4f6f9}
+.kk-klasik-link{text-align:right;margin:10px 4px 0;font-size:12px}.kk-klasik-link.kk-sol{text-align:left;margin:0 0 12px}
+.kk-klasik-link a{color:#5d6878;text-decoration:underline}
+@media(max-width:760px){.subtabs.kk-adimlar,.subtabs.kk-adimlar.kk-4{grid-template-columns:1fr;gap:6px;padding:10px}.kk-adimlar .subtab.kk-adim::after{display:none}.kk-m small{white-space:normal}}
+</style>
 </head>
 <body>
 <script>
@@ -823,6 +846,8 @@ function buildTabs(){
 
 /* ==================== RENDER ==================== */
 function render(){
+  /* Performans Panosu açıkken karne verisi değişmediyse yeniden çizme (iframe yeniden yüklenmesin, filtreler korunsun) */
+  if(TAB==='karne'&&!karnePerfKlasik&&(SES.rol==='mudur'?karneMudurSub:karneAdminSub)==='dashboard'&&document.getElementById('kkPerf')&&perfImza()===PERF_IMZA)return;
   var rows=filtered();
   var effMarkalar=new Set(rows.map(r=>r.marka));
   var summary=(TAB==='karne'||TAB==='yonetim')?'':'<b>'+aktifAylar().length+'</b> ay · <b>'+effMarkalar.size+'</b> marka · <b>'
@@ -1171,8 +1196,9 @@ var KARNE_DURUM_OPT=['Başarılı','Yetersiz','Etkisi Yok'];
 var karneDurumMap={taslak:'Taslak',kesinlesen:'Kesinleşen'};
 var karneDurumCls={taslak:'k-taslak',kesinlesen:'k-kesin'};
 var karneSel={yil:null,ay:null,dan:null};
-var karneMudurSub='giris';
-var karneAdminSub='liste';
+var karneMudurSub='teblig';   /* akış: 1 Hedef Tebliğ → 2 Ay Sonu Karnesi → 3 Performans */
+var karneAdminSub='tebligler';
+var karnePerfKlasik=false, PERF_IMZA='';   /* yeni Performans Panosu (performans.html) / klasik grafik */
 var TEBLIG_METRIKLER=KARNE_METRIKLER;
 /* Bu markalarda Kasko/Sigorta TEK satır olarak kalır (2.El zaten kendine özgü
    %70 kuralına sahip; BMW/MINI/Motorrad/O&J için ayrım istenmedi). */
@@ -2192,16 +2218,15 @@ function markaKanonik(raw){
   return markaKanonik._map[markaNorm(raw)]||raw;
 }
 function viewKarneMudur(){
-  var sub='<div class="subtabs">'
-    +'<button class="subtab karne-sub'+(karneMudurSub==='giris'?' on':'')+'" data-ksub="giris">Karne Girişi</button>'
-    +'<button class="subtab karne-sub'+(karneMudurSub==='teblig'?' on':'')+'" data-ksub="teblig">Hedef Tebliğ</button>'
-    +'<button class="subtab karne-sub'+(karneMudurSub==='dashboard'?' on':'')+'" data-ksub="dashboard">Performans Dashboard</button></div>';
+  var perfAcik=karneMudurSub==='dashboard'&&!karnePerfKlasik;
   var markaRaw=SES.marka; /* hesaptaki satış markası/markaları (İK Sistemi → Kullanıcı Hesapları) */
-  if(!markaRaw)return sub+'<div class="empty">Hesabınıza bir marka atanmamış. Lütfen İK/Yönetici ile görüşün.</div>';
+  if(!markaRaw)return kkAdimBandi(karneMudurSub,'mudur',null,false)+'<div class="empty">Hesabınıza bir marka atanmamış. Lütfen İK/Yönetici ile görüşün.</div>';
   /* Bir müdür birden fazla markadan sorumlu olabilir (örn. "ARJ,FIAT") */
   var markaList=(''+markaRaw).split(',').map(function(s){return markaKanonik(s.trim());}).filter(Boolean);
   if(!karneMudurMarkaSec||markaList.indexOf(karneMudurMarkaSec)<0)karneMudurMarkaSec=markaList[0];
   var marka=karneMudurMarkaSec;
+  var sub=kkAdimBandi(karneMudurSub,'mudur',marka,perfAcik);
+  if(perfAcik)return sub+karneDashboardHtml({marka:marka,isAdmin:false});
   var markaSecici=markaList.length>1
     ?('<div class="chips" style="margin:0 0 14px">'+markaList.map(function(m){
         return '<span class="chip q'+(m===marka?' on':'')+'" data-mudurmarka="'+esc(m)+'">'+esc(markaAd(m))+'</span>';
@@ -2214,7 +2239,9 @@ function viewKarneMudur(){
 function viewKarneMudurGiris(marka){
   var roster=karneRoster(marka);
   if(!karneSel.yil)karneSel.yil=DIM.yillar.length?DIM.yillar[DIM.yillar.length-1]:new Date().getFullYear();
-  if(!karneSel.ay)karneSel.ay=new Date().getMonth()+1;
+  if(!karneSel.ay){ /* karne ay bitince girilir → varsayılan: bir önceki ay (yalnız ilk açılışta) */
+    var _oa=new Date(); _oa.setDate(1); _oa.setMonth(_oa.getMonth()-1); karneSel.ay=_oa.getMonth()+1;
+    if(_oa.getFullYear()!==karneSel.yil&&(DIM.yillar||[]).indexOf(_oa.getFullYear())>=0)karneSel.yil=_oa.getFullYear(); }
   if(!karneSel.dan||roster.indexOf(karneSel.dan)<0)karneSel.dan=roster[0]||null;
 
   var yilList=DIM.yillar.length?DIM.yillar:[karneSel.yil];
@@ -2282,11 +2309,8 @@ function karneMudurGecmis(marka){
     +'<tbody>'+rows+'</tbody></table></div></div>';
 }
 function viewKarneAdmin(){
-  var sub='<div class="subtabs">'
-    +'<button class="subtab karne-sub'+(karneAdminSub==='liste'?' on':'')+'" data-ksub="liste">Karneler</button>'
-    +'<button class="subtab karne-sub'+(karneAdminSub==='tebligler'?' on':'')+'" data-ksub="tebligler">Hedef Tebliğleri</button>'
-    +'<button class="subtab karne-sub'+(karneAdminSub==='dashboard'?' on':'')+'" data-ksub="dashboard">Performans Dashboard</button>'
-    +'<button class="subtab karne-sub'+(karneAdminSub==='disaAktar'?' on':'')+'" data-ksub="disaAktar">Veri Dışa Aktar</button></div>';
+  var perfAcik=karneAdminSub==='dashboard'&&!karnePerfKlasik;
+  var sub=kkAdimBandi(karneAdminSub,'admin',null,perfAcik);
   if(karneAdminSub==='dashboard')return sub+karneDashboardHtml({marka:null,isAdmin:true});
   if(karneAdminSub==='disaAktar')return sub+karneExportHtml();
   if(karneAdminSub==='tebligler')return sub+tebligAdminListe();
@@ -2375,7 +2399,84 @@ function karneAdminListe(){
   }).join('');
   return matris+head+cards;
 }
+/* ===== Yeni Performans Panosu (performans.html, iframe içinde) =====
+   Pano kendi sayfasında çizilir (stil ve kod izolasyonu). Veriyi YALNIZ bu pencereden __perfVeriAl ile alır:
+   müdür yalnız kendi markasını (kapsam.satisMarka) alabilir, admin tüm markaları. Firestore'a hiçbir şey yazmaz. */
+function perfYetkiliMarkalar(){
+  if(SES.rol==='mudur')return (''+(SES.marka||'')).split(',').map(function(s){return markaKanonik(s.trim());}).filter(Boolean);
+  if(SES.rol==='admin'){var s=new Set((DIM.markalar||[]).slice());(WORK.karneler||[]).forEach(function(k){if(k.marka)s.add(k.marka);});return [...s];}
+  return [];
+}
+window.__perfVeriAl=function(markaIstek,yilIstek){
+  var izinli=perfYetkiliMarkalar(); if(!izinli.length)return null;
+  var marka=null;
+  if(markaIstek&&izinli.indexOf(markaIstek)>=0)marka=markaIstek;
+  else if(SES.rol==='mudur')marka=(karneMudurMarkaSec&&izinli.indexOf(karneMudurMarkaSec)>=0)?karneMudurMarkaSec:izinli[0];
+  else if(karneDashFlt.marka&&izinli.indexOf(karneDashFlt.marka)>=0)marka=karneDashFlt.marka;
+  else{var say={};(WORK.karneler||[]).forEach(function(k){say[k.marka]=(say[k.marka]||0)+1;});marka=izinli.slice().sort(function(a,b){return (say[b]||0)-(say[a]||0);})[0];}
+  if(SES.rol==='mudur')karneMudurMarkaSec=marka; else karneDashFlt.marka=marka;
+  var tum=(WORK.karneler||[]).filter(function(k){return k.marka===marka;});
+  var yillar=[...new Set(tum.map(function(k){return +k.yil;}))].sort(function(a,b){return a-b;});
+  if(!yillar.length)yillar=[new Date().getFullYear()];
+  var yil=yillar.indexOf(+yilIstek)>=0?+yilIstek:yillar[yillar.length-1];
+  var ks=tum.filter(function(k){return +k.yil===yil;});
+  var dMap={'Başarılı':'B','Yetersiz':'Y','Etkisi Yok':'EY'};
+  var karneler=ks.map(function(k){
+    var m={};
+    (k.metrikler||[]).forEach(function(r){m[r.key]={h:(r.hedef==null||r.hedef==='')?null:+r.hedef,f:(r.gerceklesen==null||r.gerceklesen==='')?null:+r.gerceklesen,d:dMap[r.durum]||'EY'};});
+    var mf=manuelFiiliBul(marka,k.danisman,k.yil,k.ay);
+    if(mf&&m.arac_satis&&mf.fiili!=null&&mf.fiili!==''){m.arac_satis.f=+mf.fiili;m.arac_satis.manuel=true;}
+    return {dan:k.danisman,ay:(+k.ay)-1,taslak:k.durum!=='kesinlesen',m:m};
+  });
+  var ayMap={};karneler.forEach(function(k){(ayMap[k.dan]=ayMap[k.dan]||[]).push(k.ay);});
+  var tumAy=[].concat.apply([],Object.keys(ayMap).map(function(n){return ayMap[n];}));
+  var ilkAy=tumAy.length?Math.min.apply(null,tumAy):0;
+  var danlar=Object.keys(ayMap).map(function(n){
+    var a=ayMap[n],bas=Math.min.apply(null,a),bit=Math.max.apply(null,a),eski=!!ayrildiMi(n),yeni=!eski&&bas>ilkAy;
+    var e=eski?(WORK.eskiCalisanlar||[]).find(function(x){return x.danisman===n&&markaNorm(x.marka)===markaNorm(marka);}):null;
+    var alt=eski?('Eski çalışan'+(e&&e.ay?' · '+AYLAR[e.ay-1]+(e.yil?' '+e.yil:'')+'’dan itibaren':'')):(yeni?('Yeni · ilk karne '+AYLAR[bas]):(new Set(a).size+' karne'));
+    return {id:n,ad:n,alt:alt,eski:eski,yeni:yeni,bas:bas,bit:bit};
+  }).sort(function(x,y){return (x.eski-y.eski)||x.ad.localeCompare(y.ad,'tr');});
+  var metrikler=karneMetrikleri(marka).map(function(m){return {key:m.key,ad:m.ad,kisa:m.kisa||m.ad,tip:m.tip==='ozel'?'ozel':'sayi',birim:m.key==='arac_satis'?'adet':''};});
+  return {marka:marka,markaAd:markaAd(marka),markalar:izinli.map(function(x){return {kod:x,ad:markaAd(x)};}),yil:yil,yillar:yillar,
+    metrikler:metrikler,danlar:danlar,karneler:karneler,aylar:[...new Set(tumAy)].sort(function(a,b){return a-b;}),rol:SES.rol};
+};
+function perfImza(){
+  var s=JSON.stringify([WORK.karneler||[],WORK.manuelFiili||[],WORK.eskiCalisanlar||[]]);
+  var h=5381; for(var i=0;i<s.length;i++){h=((h<<5)+h+s.charCodeAt(i))|0;}
+  return s.length+':'+h;
+}
+function perfAdimBilgi(marka){
+  var b=new Date(),yil=b.getFullYear(),ay=b.getMonth()+1,o=new Date(yil,ay-2,1),oYil=o.getFullYear(),oAy=o.getMonth()+1;
+  var roster=marka?karneRoster(marka):[],n=roster.length;
+  var tb=marka?roster.filter(function(d){return !!tebligBul(yil,ay,marka,d);}).length:0;
+  var ks=marka?(WORK.karneler||[]).filter(function(k){return k.marka===marka&&+k.yil===oYil&&+k.ay===oAy;}):[];
+  var kes=ks.filter(function(k){return k.durum==='kesinlesen';}).length,tas=ks.length-kes;
+  return {
+    teblig:{durum:AYLAR[ay-1]+' '+yil+' · '+(n?tb+'/'+n+' danışmana tebliğ edildi':'danışmanlara hedef tebliği'),tamam:n>0&&tb>=n},
+    karne:{durum:AYLAR[oAy-1]+' '+oYil+' · '+(n?kes+'/'+n+' kesinleşti'+(tas?', '+tas+' taslak':''):'ay sonu karneleri'),tamam:n>0&&kes>=n},
+    performans:{durum:'Filtrele · sırala · Excel raporu indir',tamam:false}
+  };
+}
+function kkAdimBandi(aktif,rol,marka,bitisik){
+  var A;
+  if(rol==='mudur'){var bi=perfAdimBilgi(marka);
+    A=[['teblig','Hedef Tebliğ',bi.teblig],['giris','Ay Sonu Karnesi',bi.karne],['dashboard','Performans',bi.performans]];}
+  else A=[['tebligler','Hedef Tebliğleri',{durum:'Tüm markalar · tebliğ takibi'}],['liste','Karneler',{durum:'Tüm markalar · ay sonu karneleri'}],['dashboard','Performans',{durum:'Marka seç · filtrele · Excel raporu'}]];
+  var h='<div class="subtabs kk-adimlar'+(rol==='mudur'?'':' kk-4')+(bitisik?' kk-bitisik':'')+'">'+A.map(function(x,i){
+    var on=aktif===x[0],ok=!!x[2].tamam&&!on;
+    return '<button class="subtab karne-sub kk-adim'+(on?' on':'')+(ok?' tamam':'')+'" data-ksub="'+x[0]+'"><span class="kk-no">'+(ok?'✓':(i+1))+'</span><span class="kk-m"><b>'+(i+1)+' · '+esc(x[1])+'</b><small>'+esc(x[2].durum||'')+'</small></span></button>';
+  }).join('');
+  if(rol!=='mudur')h+='<button class="subtab karne-sub kk-ek'+(aktif==='disaAktar'?' on':'')+'" data-ksub="disaAktar">Veri Dışa Aktar</button>';
+  return h+'</div>';
+}
 function karneDashboardHtml(opts){
+  if(karnePerfKlasik)return '<div class="kk-klasik-link kk-sol"><a href="#" id="kkYeniGorunum">← Yeni Performans Panosu’na dön</a></div>'+karneDashboardHtmlKlasik(opts);
+  PERF_IMZA=perfImza();
+  return '<iframe id="kkPerf" class="kk-perf" src="performans.html?v=1" title="Performans Panosu"></iframe>'
+    +'<div class="kk-klasik-link"><a href="#" id="kkKlasik">Klasik grafik görünümü</a></div>';
+}
+function karneDashboardHtmlKlasik(opts){
   var fixedMarka=opts.marka;
   var effMarka=fixedMarka!=null?fixedMarka:karneDashFlt.marka;
   var markaSelHtml=fixedMarka!=null
@@ -2680,6 +2781,8 @@ function bindKarneDynamic(){
   var kdM=document.getElementById('kdMarka'); if(kdM)kdM.onchange=function(){karneDashFlt.marka=kdM.value;karneDashFlt.danisman='';render();};
   var kdD=document.getElementById('kdDan'); if(kdD)kdD.onchange=function(){karneDashFlt.danisman=kdD.value;render();};
   var kdMet=document.getElementById('kdMetrik'); if(kdMet)kdMet.onchange=function(){karneDashFlt.metrik=kdMet.value;render();};
+  var kkK=document.getElementById('kkKlasik'); if(kkK)kkK.onclick=function(e){e.preventDefault();karnePerfKlasik=true;render();};
+  var kkY=document.getElementById('kkYeniGorunum'); if(kkY)kkY.onclick=function(e){e.preventDefault();karnePerfKlasik=false;render();};
   var kexp=document.getElementById('kExportCsv'); if(kexp)kexp.onclick=karneExportCsvIndir;
   bindKarneDnd();
   bindTebligDynamic();
