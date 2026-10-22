@@ -979,12 +979,60 @@ function excelYukle() {
   });
   return xlYuk;
 }
-function grafikPng(tip, data, secenek, gen = 1000, yuk = 420) {
-  const kap = document.createElement('div'); kap.style.cssText = `position:fixed;left:-12000px;top:0;width:${gen}px;height:${yuk}px`;
+/* Excel grafikleri: beyaz kart zemin, başlık + açıklama, lejant, değer etiketleri, eşik çizgisi (PNG olarak gömülür) */
+const kkArka = { id: 'kkArka', beforeDraw(ch) { const c = ch.ctx; c.save(); c.fillStyle = '#ffffff'; c.fillRect(0, 0, ch.width, ch.height); c.strokeStyle = '#dfe5ec'; c.lineWidth = 2; c.strokeRect(1, 1, ch.width - 2, ch.height - 2); c.restore(); } };
+const kkEsik = { id: 'kkEsik', beforeDatasetsDraw(ch) {
+  const o = ((ch.config.options || {}).plugins || {}).kkEsik; if (!o || o.deger == null) return;
+  const yatay = ch.options.indexAxis === 'y', sc = yatay ? ch.scales.x : ch.scales.y; if (!sc) return;
+  const p = sc.getPixelForValue(o.deger), A = ch.chartArea, c = ch.ctx;
+  c.save(); c.strokeStyle = '#9c7428'; c.lineWidth = 2; c.setLineDash([7, 5]); c.beginPath();
+  if (yatay) { c.moveTo(p, A.top); c.lineTo(p, A.bottom); } else { c.moveTo(A.left, p); c.lineTo(A.right, p); }
+  c.stroke(); c.setLineDash([]); c.fillStyle = '#9c7428'; c.font = '700 13px Inter, Arial, sans-serif';
+  if (yatay) { c.textAlign = 'left'; c.textBaseline = 'bottom'; c.fillText(o.etiket || '', p + 6, A.top - 4); }
+  else { c.textAlign = 'right'; c.textBaseline = 'bottom'; c.fillText(o.etiket || '', A.right - 4, p - 6); }
+  c.restore(); } };
+const kkDeger = { id: 'kkDeger', afterDatasetsDraw(ch) {
+  const c = ch.ctx, yatay = ch.options.indexAxis === 'y';
+  ch.data.datasets.forEach((ds, di) => {
+    const meta = ch.getDatasetMeta(di); if (meta.hidden || ds.etiket === false) return;
+    meta.data.forEach((el, i) => {
+      const v = ds.data[i]; if (v === null || v === undefined) return;
+      const t = typeof ds.etiket === 'function' ? ds.etiket(v, i) : String(v); if (!t) return;
+      c.save(); c.font = '700 13px Inter, Arial, sans-serif';
+      if (meta.type === 'bar' && ds.etiketIc) {
+        const w = yatay ? Math.abs(el.x - el.base) : Math.abs(el.y - el.base); if (w < 34) { c.restore(); return; }
+        c.fillStyle = ds.etiketRenk || '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(t, yatay ? (el.x + el.base) / 2 : el.x, yatay ? el.y : (el.y + el.base) / 2);
+      } else if (meta.type === 'bar' && ds.etiketIcUst && !yatay && Math.abs(el.base - el.y) > 26) {
+        c.fillStyle = '#ffffff'; c.textAlign = 'center'; c.textBaseline = 'top'; c.fillText(t, el.x, el.y + 7);
+      } else if (meta.type === 'bar') {
+        c.fillStyle = '#13202f';
+        if (yatay) { c.textAlign = 'left'; c.textBaseline = 'middle'; c.fillText(t, el.x + 8, el.y); }
+        else { c.textAlign = 'center'; c.textBaseline = 'bottom'; c.fillText(t, el.x, el.y - 6); }
+      } else {
+        c.fillStyle = ds.borderColor || '#13202f'; c.textAlign = 'center'; c.textBaseline = ds.etiketAlt ? 'top' : 'bottom';
+        c.fillText(t, el.x, ds.etiketAlt ? el.y + 11 : el.y - 11);
+      }
+      c.restore();
+    });
+  }); } };
+function grafikPng(tip, data, s, gen = 1100, yuk = 470) {
+  s = s || {};
+  const kap = document.createElement('div'); kap.style.cssText = `position:fixed;left:-14000px;top:0;width:${gen}px;height:${yuk}px`;
   const cv = document.createElement('canvas'); cv.width = gen; cv.height = yuk; kap.appendChild(cv); document.body.appendChild(kap);
-  const op = Object.assign({ responsive: false, animation: false, devicePixelRatio: 2 }, secenek);
-  op.plugins = Object.assign({ legend: { position: 'bottom', labels: { font: { size: 13 } } } }, secenek.plugins || {});
-  const g = new Chart(cv, { type: tip, data, options: op });
+  const yazi = (b, k) => ({ family: 'Inter, Arial, sans-serif', size: b, weight: k || '500' });
+  const olcek = ek => { ek = ek || {}; const t = Object.assign({ color: '#465467', font: yazi(13, '600'), padding: 6 }, ek.ticks || {}); return Object.assign({ grid: { color: '#edf0f4' }, border: { display: false } }, ek, { ticks: t }); };
+  const op = { responsive: false, animation: false, devicePixelRatio: 2, indexAxis: s.indexAxis || 'x',
+    layout: { padding: { top: 6, right: 30, bottom: 12, left: 16 } },
+    scales: { x: olcek((s.scales || {}).x), y: olcek((s.scales || {}).y) },
+    plugins: {
+      title: { display: !!s.baslik, text: s.baslik || '', align: 'start', color: '#132a46', font: yazi(20, '700'), padding: { top: 14, bottom: 4 } },
+      subtitle: { display: !!s.aciklama, text: s.aciklama || '', align: 'start', color: '#5d6b7c', font: yazi(13), padding: { bottom: 14 } },
+      legend: { display: s.lejant !== false, position: 'top', align: 'start', labels: { usePointStyle: true, pointStyle: 'rectRounded', boxWidth: 14, boxHeight: 14, padding: 18, color: '#13202f', font: yazi(14, '600') } },
+      tooltip: { enabled: false },
+      kkEsik: s.esik || {}
+    } };
+  const g = new Chart(cv, { type: tip, data, options: op, plugins: [kkArka, kkEsik, kkDeger] });
   const url = cv.toDataURL('image/png'); g.destroy(); kap.remove();
   return url.split(',')[1];
 }
@@ -1040,7 +1088,7 @@ async function raporUret(yalnizKesin) {
   const ozetSatirStil = (row, nc, renk) => { for (let i = 1; i <= nc; i++) { const c = row.getCell(i); c.border = Object.assign({}, KENAR, i ? {} : {}); c.font = Object.assign({}, c.font || {}, { bold: true }); if (!c.fill || i === 1) c.fill = dolgu(renk); } };
 
   /* ---------- 1) Aylık Başarı Özeti ---------- */
-  const w1 = wb.addWorksheet('Aylık Başarı Özeti', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] });
+  const w1 = wb.addWorksheet('Aylık Başarı Özeti', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3, showGridLines: false }], properties: { tabColor: { argb: 'FF132A44' } } });
   const nc1 = 1 + ayl.length + CEY.length + 1;
   baslikYaz(w1, BASLIK, nc1, 15);
   w1.mergeCells(2, 1, 2, nc1); w1.getCell(2, 1).value = `Dönem: ${donemAd} · ${danAd} · ${yalnizKesin ? 'yalnız kesinleşen karneler' : 'kesinleşen + taslak karneler'} · Hazırlanma: ${hazir}`;
@@ -1076,7 +1124,7 @@ async function raporUret(yalnizKesin) {
   w1.getColumn(1).width = 34; for (let j = 2; j <= nc1; j++) w1.getColumn(j).width = j > 1 + ayl.length && j < nc1 ? 13 : 11;
 
   /* ---------- 2) Metrik Bazında Başarı % ---------- */
-  const w2 = wb.addWorksheet('Metrik Bazında Başarı %', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
+  const w2 = wb.addWorksheet('Metrik Bazında Başarı %', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2, showGridLines: false }], properties: { tabColor: { argb: 'FF132A44' } } });
   const nc2 = 2 + ayl.length + CEY.length;
   baslikYaz(w2, BASLIK + ' - Metrik Bazında Başarı %', nc2, 13);
   basliklar(w2, 2, ['', 'METRİK', ...AYB, ...QB], ['', 'METRİK', ...AYB].map(() => C.HDR2).concat(QB.map(() => C.NAVY)));
@@ -1116,7 +1164,7 @@ async function raporUret(yalnizKesin) {
   w2.getColumn(1).width = 3; w2.getColumn(2).width = 38; for (let j = 3; j <= nc2; j++) w2.getColumn(j).width = j > 2 + ayl.length ? 13 : 11;
 
   /* ---------- 3) Satış Hedef - Fiili ---------- */
-  const w3 = wb.addWorksheet('Satış Hedef - Fiili', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
+  const w3 = wb.addWorksheet('Satış Hedef - Fiili', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2, showGridLines: false }], properties: { tabColor: { argb: 'FF132A44' } } });
   const nc3 = 2 + ayl.length + CEY.length;
   baslikYaz(w3, BASLIK + ' - Satış Hedef - Fiili (Araç Satış Adedi — adet)', nc3, 13);
   basliklar(w3, 2, ['DANIŞMAN', 'Satır', ...AYB, ...QB], ['DANIŞMAN', 'Satır', ...AYB].map(() => C.NAVY).concat(QB.map(() => C.HDR2)));
@@ -1149,36 +1197,64 @@ async function raporUret(yalnizKesin) {
   dipNot(w3, r3 + 1, nc3, 'Renk: Yeşil ≥ %100 · Amber %70–99 · Kırmızı < %70. Başarı % = Fiili / Hedef × 100 (çeyrek ve toplam satırlarında toplamlar üzerinden). İtalik = taslak karne.');
   w3.getColumn(1).width = 30; w3.getColumn(2).width = 20; for (let j = 3; j <= nc3; j++) w3.getColumn(j).width = j > 2 + ayl.length ? 13 : 10;
 
-  /* ---------- 4) Grafikler ---------- */
-  const w4 = wb.addWorksheet('Grafikler');
-  w4.getColumn(1).width = 2;
-  w4.mergeCells(1, 2, 1, 16); w4.getCell(1, 2).value = BASLIK + ' - Grafikler'; w4.getCell(1, 2).font = { bold: true, size: 15, color: { argb: C.NAVY } };
-  w4.getCell(2, 2).value = `Dönem: ${donemAd} · ${danAd}`; w4.getCell(2, 2).font = { italic: true, size: 9, color: { argb: C.GRI } };
-  const resim = (r, baslik, b64) => {
-    const c = w4.getCell(r, 2); c.value = baslik; c.font = { bold: true, size: 13, color: { argb: C.NAVY } };
-    const id = wb.addImage({ base64: b64, extension: 'png' }); w4.addImage(id, { tl: { col: 1, row: r }, ext: { width: 900, height: 378 } });
-  };
-  const sirali = danlar.map((d, i) => ({ ad: d.ad + (d.eski ? ' (eski)' : ''), o: ortlar[i] })).filter(x => x.o !== null).sort((a, b) => b.o - a.o);
-  resim(4, 'Danışman bazında ortalama başarı (%)', grafikPng('bar',
-    { labels: sirali.map(x => x.ad), datasets: [{ label: 'Ortalama başarı %', data: sirali.map(x => x.o), backgroundColor: sirali.map(x => x.o >= 80 ? '#23955f' : x.o >= 50 ? '#d9a12b' : '#cc4444'), borderRadius: 4 }] },
-    { indexAxis: 'y', scales: { x: { min: 0, max: 100 } }, plugins: { legend: { display: false } } }));
-  resim(26, 'Aylık ekip ortalama başarısı (%) — marka ortalaması / aktif çalışanlar', grafikPng('line',
-    { labels: AYB, datasets: [
-      { label: 'Marka ortalaması', data: ayl.map(a => ortBas(kSec(TUM, [a]))), borderColor: '#1b3a5e', backgroundColor: 'rgba(27,58,94,.10)', fill: true, tension: .3, pointRadius: 5, pointBackgroundColor: '#1b3a5e', pointBorderColor: '#fff' },
-      { label: 'Aktif çalışanlar', data: ayl.map(a => ortBas(kSec(AKT.size ? AKT : TUM, [a]))), borderColor: '#b98b37', backgroundColor: '#b98b37', borderDash: [6, 4], tension: .3, pointRadius: 4, pointBorderColor: '#fff' }] },
-    { scales: { y: { min: 0, max: 100 } } }));
-  resim(48, 'Çeyreklik ekip başarısı (%) — marka ortalaması / aktif çalışanlar', grafikPng('bar',
-    { labels: QB, datasets: [
-      { label: 'Marka ortalaması', data: CEY.map(q => ortBas(kSec(TUM, q.aylar))), backgroundColor: '#1b3a5e', borderRadius: 4 },
-      { label: 'Aktif çalışanlar', data: CEY.map(q => ortBas(kSec(AKT.size ? AKT : TUM, q.aylar))), backgroundColor: '#b98b37', borderRadius: 4 }] },
-    { scales: { y: { min: 0, max: 100 } } }));
+  /* ---------- 4) Grafikler — her grafik açıklamalı ve değer etiketli; ızgarasız açık zemin ---------- */
+  const w4 = wb.addWorksheet('Grafikler', { views: [{ showGridLines: false }], properties: { tabColor: { argb: 'FFB98B37' } } });
+  const GK = 18, GEN = 1100, OLC = 0.9;
+  for (let j = 1; j <= GK; j++) w4.getColumn(j).width = j === 1 ? 2 : 9.5;
+  w4.mergeCells(1, 2, 1, GK); const gb1 = w4.getCell(1, 2); gb1.value = BASLIK + ' — Grafikler'; gb1.font = { bold: true, size: 15, color: { argb: C.NAVY } }; w4.getRow(1).height = 26;
+  w4.mergeCells(2, 2, 2, GK); const gb2 = w4.getCell(2, 2); gb2.value = `Dönem: ${donemAd} · ${danAd} · ${yalnizKesin ? 'yalnız kesinleşen karneler' : 'kesinleşen + taslak karneler'} · Hazırlanma: ${hazir}`; gb2.font = { italic: true, size: 9, color: { argb: C.GRI } };
+  let gr = 4;
+  const resim = (b64, yuk) => { const id = wb.addImage({ base64: b64, extension: 'png' }); w4.addImage(id, { tl: { col: 1, row: gr - 1 }, ext: { width: GEN * OLC, height: yuk * OLC } }); gr += Math.ceil(yuk * OLC / 20) + 2; };
+  const yuzdeEksen = (ust) => ({ min: 0, max: ust, ticks: { callback: v => v <= 100 ? '%' + v : '' } });
+  const IKI = eskiVar;
+  /* 1 — Danışman bazında ortalama başarı */
+  const s1 = danlar.map((d, i) => ({ ad: d.ad + (d.eski ? ' (eski)' : ''), o: ortlar[i] })).filter(x => x.o !== null).sort((a, b) => b.o - a.o);
+  if (s1.length) { const h = Math.max(380, 160 + s1.length * 36);
+    resim(grafikPng('bar', { labels: s1.map(x => x.ad), datasets: [{ label: 'Ortalama başarı', data: s1.map(x => x.o), backgroundColor: s1.map(x => x.o >= 80 ? '#23955f' : x.o >= 50 ? '#d9a12b' : '#cc4444'), borderRadius: 6, barThickness: 22, etiket: v => '%' + v }] },
+      { indexAxis: 'y', lejant: false, baslik: 'Danışman bazında ortalama başarı',
+        aciklama: ['Seçili dönemde her danışmanın aylık karne başarı oranlarının ortalaması (en yüksekten en düşüğe).', 'Yeşil ≥ %80 başarılı · Amber %50–79 sınırda · Kırmızı < %50 yetersiz · Kesikli çizgi: %80 başarılı eşiği.'],
+        esik: { deger: 80, etiket: 'Başarılı eşiği %80' }, scales: { x: yuzdeEksen(110), y: { grid: { display: false } } } }, GEN, h), h); }
+  /* 2 — Aylık ekip başarısı (marka / aktif çalışanlar) */
+  const ds2 = [{ type: 'line', label: 'Marka ortalaması (tüm danışmanlar)', data: ayl.map(a => ortBas(kSec(TUM, [a]))), borderColor: '#1b3a5e', backgroundColor: '#1b3a5e', borderWidth: 3, pointRadius: 5, pointBackgroundColor: '#1b3a5e', tension: .25, etiket: v => '%' + v }];
+  if (IKI) ds2.push({ type: 'line', label: 'Aktif çalışanlar ortalaması (eski çalışanlar hariç)', data: ayl.map(a => ortBas(kSec(AKT, [a]))), borderColor: '#b98b37', backgroundColor: '#b98b37', borderWidth: 3, borderDash: [8, 5], pointRadius: 5, pointBackgroundColor: '#b98b37', tension: .25, etiket: v => '%' + v, etiketAlt: true });
+  resim(grafikPng('line', { labels: AYB, datasets: ds2 },
+    { baslik: 'Aylık ekip başarısı', aciklama: ['Her ay, o ay karnesi olan danışmanların başarı oranlarının ortalaması.', IKI ? 'Lacivert: tüm danışmanlar · Pirinç (kesikli): aktif çalışanlar. İki çizgi ayrışıyorsa ayrılan danışmanlar ortalamayı etkiliyor demektir.' : 'Bu dönemde eski çalışan yok; tek çizgi gösteriliyor.'],
+      esik: { deger: 80, etiket: 'Başarılı eşiği %80' }, scales: { y: yuzdeEksen(108), x: { grid: { display: false } } } }, GEN, 470), 470);
+  /* 3 — Çeyreklik ekip başarısı */
+  const ds3 = [{ label: 'Marka ortalaması (tüm danışmanlar)', data: CEY.map(q => ortBas(kSec(TUM, q.aylar))), backgroundColor: '#1b3a5e', borderRadius: 6, maxBarThickness: 72, etiket: v => '%' + v }];
+  if (IKI) ds3.push({ label: 'Aktif çalışanlar ortalaması (eski çalışanlar hariç)', data: CEY.map(q => ortBas(kSec(AKT, q.aylar))), backgroundColor: '#b98b37', borderRadius: 6, maxBarThickness: 72, etiket: v => '%' + v });
+  resim(grafikPng('bar', { labels: CEY.map(q => [q.ad, q.etiket.slice(q.ad.length).replace(/[()]/g, '').trim()]), datasets: ds3 },
+    { baslik: 'Çeyreklik ekip başarısı', aciklama: ['Her çeyrekteki tüm karnelerin başarı oranı ortalaması (çubuk üstünde değer).', IKI ? 'Lacivert: tüm danışmanlar · Pirinç: aktif çalışanlar (ayrılanlar hariç).' : 'Bu dönemde eski çalışan yok; tek seri gösteriliyor.'],
+      esik: { deger: 80, etiket: 'Başarılı eşiği %80' }, scales: { y: yuzdeEksen(108), x: { grid: { display: false } } } }, GEN, 470), 470);
+  /* 4 — Metrik bazında başarı durumu (en zorlanılan en üstte) */
+  const pc = (n, t) => t ? Math.round(n / t * 100) : 0;
+  const metS = METRIKLER.map(mt => { let b = 0, y = 0, e = 0; kapsamK.forEach(k => { const x = k.m[mt.key]; if (!x) return; if (x.d === 'B') b++; else if (x.d === 'Y') y++; else e++; });
+    return { ad: mt.ad, b, y, e, t: b + y + e, o: (b + y) ? b / (b + y) : 2 }; }).filter(x => x.t).sort((p, q) => p.o - q.o);
+  if (metS.length) { const h = Math.max(380, 170 + metS.length * 36);
+    resim(grafikPng('bar', { labels: metS.map(x => x.ad), datasets: [
+        { label: 'Başarılı', data: metS.map(x => pc(x.b, x.t)), backgroundColor: '#23955f', barThickness: 22, etiketIc: true, etiket: v => '%' + v },
+        { label: 'Yetersiz', data: metS.map(x => pc(x.y, x.t)), backgroundColor: '#cc4444', barThickness: 22, etiketIc: true, etiket: v => '%' + v },
+        { label: 'Etkisi Yok', data: metS.map(x => Math.max(0, 100 - pc(x.b, x.t) - pc(x.y, x.t))), backgroundColor: '#b5bcc7', barThickness: 22, etiketIc: true, etiketRenk: '#3b4656', etiket: v => v ? '%' + v : '' }] },
+      { indexAxis: 'y', baslik: 'Metrik bazında başarı durumu', aciklama: ['Her metrikte karnelerin yüzde kaçında Başarılı / Yetersiz / Etkisi Yok işaretlendiği.', 'En çok zorlanılan metrikler en üstte (başarılı oranı en düşük olanlar) — gelişim önceliği buradan okunur.'],
+        scales: { x: { stacked: true, min: 0, max: 100, ticks: { callback: v => '%' + v } }, y: { stacked: true, grid: { display: false } } } }, GEN, h), h); }
   if (MET.arac_satis) {
+    /* 5 — Araç satış: aylık hedef / gerçekleşen (marka toplamı) */
     const ay3 = ayl.map(a => hfTop(kSec(TUM, [a])));
-    resim(70, 'Araç satış adedi — aylık hedef / gerçekleşen (marka toplamı)', grafikPng('bar',
-      { labels: AYB, datasets: [{ type: 'bar', label: 'Gerçekleşen', data: ay3.map(x => x.f), backgroundColor: '#2f6db5', borderRadius: 4, order: 2 }, { type: 'line', label: 'Hedef', data: ay3.map(x => x.h), borderColor: '#c08a2e', backgroundColor: '#c08a2e', borderWidth: 2, pointRadius: 4, tension: .3, order: 1 }] },
-      { scales: { y: { beginAtZero: true } } }));
+    resim(grafikPng('bar', { labels: ayl.map((a, i) => [AYLAR[a], ay3[i].o == null ? '' : 'gerç. %' + ay3[i].o]), datasets: [
+        { type: 'bar', label: 'Gerçekleşen (toplam adet)', data: ay3.map(x => x.f), backgroundColor: '#2f6db5', borderRadius: 6, maxBarThickness: 46, order: 2, etiketIcUst: true, etiket: v => String(v) },
+        { type: 'line', label: 'Hedef (toplam adet)', data: ay3.map(x => x.h), borderColor: '#b98b37', backgroundColor: '#b98b37', borderWidth: 3, pointRadius: 6, pointStyle: 'rectRot', tension: .25, order: 1, etiket: false }] },
+      { baslik: 'Araç satış adedi — aylık hedef ve gerçekleşen (marka toplamı)', aciklama: ['Mavi çubuk: ay içinde satılan toplam araç (çubuk üstünde adet) · Pirinç çizgi: toplam aylık hedef.', 'Ay adının altındaki yüzde: o ayın gerçekleşme oranı (fiili / hedef × 100).'],
+        scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } }, GEN, 470), 470);
+    /* 6 — Danışman bazında araç satış gerçekleşmesi */
+    const s6 = danlar.map(d => ({ ad: d.ad + (d.eski ? ' (eski)' : ''), x: hfTop(kSec(new Set([d.id]), ayl)) })).filter(z => z.x.o != null).sort((p, q) => q.x.o - p.x.o);
+    if (s6.length) { const h = Math.max(380, 160 + s6.length * 36), ust = Math.max(130, Math.ceil(Math.max(...s6.map(z => z.x.o)) / 10) * 10 + 40);
+      resim(grafikPng('bar', { labels: s6.map(z => z.ad), datasets: [{ label: 'Gerçekleşme', data: s6.map(z => z.x.o), backgroundColor: s6.map(z => z.x.o >= 100 ? '#23955f' : z.x.o >= 70 ? '#d9a12b' : '#cc4444'), borderRadius: 6, barThickness: 22,
+          etiket: (v, i) => '%' + v + '  (' + s6[i].x.f + ' / ' + s6[i].x.h + ' adet)' }] },
+        { indexAxis: 'y', lejant: false, baslik: 'Danışman bazında araç satış gerçekleşmesi', aciklama: ['Seçili dönemde her danışmanın toplam fiili satışı / toplam hedefi (parantez içinde fiili / hedef adet).', 'Yeşil ≥ %100 · Amber %70–99 · Kırmızı < %70 · Kesikli çizgi: hedef (%100).'],
+          esik: { deger: 100, etiket: 'Hedef %100' }, scales: { x: { min: 0, max: ust, ticks: { callback: v => '%' + v } }, y: { grid: { display: false } } } }, GEN, h), h); }
   }
-
+  /* Sayfa zemini: ızgarasız açık gri; grafikler beyaz kart olarak üstünde durur */
+  for (let r = 1; r <= gr + 2; r++) for (let c = 1; c <= GK; c++) { const cell = w4.getCell(r, c); if (!cell.isMerged || cell.master === cell) cell.fill = dolgu('FFF4F6F9'); }
   const buf = await wb.xlsx.writeBuffer();
   const ad = `${MARKA_AD} Satış Danışmanları - Aylık Performans Raporu ${YIL} (${donemAd.replace(YIL + ' · ', '')}${S.dan ? ' - ' + danAd : ''}).xlsx`.replace(/[\\/:*?"<>|]/g, '-');
   const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
