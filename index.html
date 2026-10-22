@@ -323,6 +323,139 @@ td.name{font-weight:600;color:var(--ink)}
   .card{box-shadow:none;border:1px solid #ddd;page-break-inside:avoid}
 }
 </style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap" rel="stylesheet">
+<style>
+/* ===== KOKPİT TEMA — Satış Panosu'nun tüm ekranları (lacivert / pirinç, Inter + Source Serif 4) =====
+   Yalnız görünüm katmanı: sınıf adları, yapı ve JS aynı kalır; mevcut değişkenlerin değerleri ve bileşen stilleri
+   Performans Panosu (kokpit.css) ile aynı dile çekilir. Koyu mod korunur. */
+:root{
+  --brand:#132a46; --brand-2:#1b3a5e; --accent:#b98b37; --accent-2:#cfa75a;
+  --page:#f4f6f9; --surface:#ffffff; --surface-2:#f7f9fc;
+  --ink:#13202f; --ink-2:#465467; --muted:#7b8796; --grid:#e6eaf0; --line:#d5dce5;
+  --s-butce:#2f6db5; --s-hedef:#c08a2e; --s-fiili:#23955f;
+  --ok:#1f8f55; --warn:#c98a1b; --bad:#cc4444; --serious:#d9733f;
+  --radius:16px;
+  --shadow:0 0 0 1px rgba(10,24,44,.05),0 1px 2px rgba(10,24,44,.05),0 12px 28px -14px rgba(10,24,44,.16);
+  --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --kk-serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --kk-kokpit:radial-gradient(120% 260% at 85% 0%,#1d3d63 0%,#0e1f37 46%,#0a182c 100%);
+  --kk-pirinc:linear-gradient(180deg,#c69a4a 0%,#b98b37 55%,#a97d2f 100%);
+}
+@media (prefers-color-scheme:dark){
+ :root{
+  --page:#0a1322; --surface:#101c2f; --surface-2:#15233a; --grid:#22324b; --line:#2c3d58;
+  --ink:#eef2f8; --ink-2:#b9c5d6; --muted:#8696ad;
+  --s-butce:#4a8ad6; --s-hedef:#d4a24a; --s-fiili:#2fb27a; --ok:#36b06d; --warn:#dca23a; --bad:#e06060;
+  --shadow:0 0 0 1px rgba(255,255,255,.04),0 12px 28px -14px rgba(0,0,0,.6);
+ }
+}
+body{font-family:var(--font);letter-spacing:-.003em;-webkit-font-smoothing:antialiased}
+.tnum,.kpi .val,td,.m-v{font-variant-numeric:tabular-nums}
+
+/* Üst bar: kokpit */
+.topbar{background:var(--kk-kokpit);border-bottom:0;box-shadow:0 1px 0 rgba(207,167,90,.55),0 8px 24px -12px rgba(10,24,44,.5)}
+.topbar .brand b{color:var(--accent-2)}
+.topbar .sub{color:#9fb1cc;border-left-color:rgba(191,205,226,.18)}
+.topbar .who{color:#c3d0e4}
+.topbar .role{background:var(--kk-pirinc);color:#1d1405;box-shadow:0 0 12px rgba(207,167,90,.35)}
+.topbar button.logout,.menuBtn,.xlchip{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(191,205,226,.18);transition:background .2s}
+.topbar button.logout:hover,.menuBtn:hover,.xlchip:hover{background:rgba(255,255,255,.12)}
+
+/* Sekmeler */
+.tabs{gap:2px;border-bottom:1px solid var(--grid)}
+.tab{border-radius:10px 10px 0 0;padding:11px 16px;color:var(--ink-2);transition:color .2s,background .2s}
+.tab:hover{color:var(--ink);background:rgba(19,42,70,.04)}
+.tab.on{color:var(--brand);border-bottom-color:var(--accent);background:linear-gradient(180deg,rgba(185,139,55,0) 0%,rgba(185,139,55,.08) 100%)}
+.filter-summary{font-size:12.5px}
+
+/* Kenar çubuğu (filtreler) */
+.sidebar{background:var(--surface);border-right:1px solid var(--grid)}
+.side-title{letter-spacing:.14em;color:var(--muted)}
+.chip{border-radius:999px;transition:border-color .15s,background .15s,color .15s}
+.chip:hover{border-color:var(--accent)}
+.chip.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:inset 0 -2px 0 var(--accent)}
+.chip.q{border-radius:9px}
+.checklist{border-radius:12px}
+.checklist input{accent-color:var(--accent)}
+.searchbox:focus,.formrow input:focus,.formrow select:focus,.formrow textarea:focus,.karne-table input:focus,.karne-table select:focus{outline:2px solid rgba(185,139,55,.55);outline-offset:0;border-color:var(--accent)}
+.btn-sm{border-radius:9px;transition:border-color .15s,color .15s}
+.btn-sm:hover{border-color:var(--accent)}
+.mini-link{color:var(--accent)}
+
+/* KPI kartları */
+.kpis{gap:16px}
+.kpi{border-top:0;border-radius:var(--radius);padding:16px 18px 15px;position:relative;overflow:hidden;
+  transition:transform .2s cubic-bezier(.2,.8,.2,1),box-shadow .2s}
+.kpi::before{content:'';position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:var(--brand)}
+.kpi.k-fiili::before{background:var(--s-fiili)} .kpi.k-hedef::before{background:var(--s-hedef)}
+.kpi.k-rank::before{background:var(--s-butce)} .kpi.k-oran::before{background:var(--accent)}
+.kpi:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(10,24,44,.06),0 18px 34px -16px rgba(10,24,44,.28)}
+.kpi .lbl{letter-spacing:.1em;font-size:10.5px;font-weight:600}
+.kpi .val{font-size:30px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.kpi .sub{color:var(--muted)}
+
+/* Kartlar ve başlıklar */
+.card,.marka-card,.karne-item{border-radius:var(--radius);box-shadow:var(--shadow)}
+.card{padding:18px 20px}
+.card h3{font-size:15px;font-weight:600;letter-spacing:-.01em}
+.card .csub{color:var(--muted)}
+.marka-head .mk{font-family:var(--kk-serif);font-size:18px;font-weight:600;letter-spacing:-.005em}
+.marka-head:hover,.karne-item-head:hover{background:var(--surface-2)}
+.legend i{border-radius:3px}
+
+/* Tablolar */
+.tablewrap{border-radius:12px;border-color:var(--grid)}
+th{background:var(--surface-2);color:var(--muted);font-size:10.5px;letter-spacing:.07em;font-weight:600}
+th:hover{color:var(--brand)}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:rgba(47,109,181,.05)}
+td.name{font-weight:600}
+.badge,.k-badge{border-radius:999px;font-weight:600}
+.b-ok{background:rgba(31,143,85,.12);color:var(--ok)} .b-warn{background:rgba(201,138,27,.15);color:#9a6608}
+.b-bad{background:rgba(204,68,68,.12);color:var(--bad)}
+.mini-gauge{background:var(--grid);height:6px;border-radius:3px}
+
+/* Grafikler (SVG) */
+.chart text{font-family:var(--font)}
+.axis{font-weight:600;font-size:12px}
+.vlabel{font-weight:700}
+.xlabel{font-weight:600}
+
+/* Alt sekmeler, butonlar, notlar, formlar */
+.subtab{border-radius:999px;padding:8px 15px;transition:background .15s,border-color .15s,color .15s}
+.subtab:hover{border-color:var(--accent);color:var(--ink)}
+.subtab.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:inset 0 -2px 0 var(--accent)}
+.btn{border-radius:10px;transition:background .15s,transform .15s,box-shadow .15s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 8px 18px -10px rgba(10,24,44,.5)}
+.btn.gold{background:var(--kk-pirinc);color:#1d1405}
+.btn.gold:hover{background:var(--kk-pirinc);filter:brightness(1.05)}
+.btn.ghost{border-radius:10px}
+.note{border-left-color:var(--accent);background:rgba(185,139,55,.07);border-radius:0 10px 10px 0}
+.formrow input,.formrow select,.formrow textarea{border-radius:9px}
+.karne-table th{letter-spacing:.06em;font-weight:600}
+.karne-table input,.karne-table select{border-radius:8px}
+.karne-item-head{font-weight:600}
+.dg-marka-row td{color:var(--brand);font-family:var(--kk-serif);font-size:14px}
+
+/* Araç ipucu, bildirim, boş durum */
+#tt{background:#0a182c;box-shadow:0 12px 28px rgba(10,24,44,.35);border-radius:10px}
+#tt b{color:#e0c38a}
+#toast{background:#0a182c;color:#f3f6fb;border-radius:12px;box-shadow:0 0 0 1px rgba(207,167,90,.35),0 12px 28px rgba(10,24,44,.35)}
+.empty{color:var(--muted)}
+@media (prefers-color-scheme:dark){
+  .tab.on{color:#e0c38a}
+  .kpi .val{color:var(--ink)}
+  .marka-head .mk,.dg-marka-row td{color:var(--ink)}
+}
+@media (prefers-reduced-motion:reduce){.kpi,.btn,.tab,.chip{transition:none}.kpi:hover,.btn:hover{transform:none}}
+/* Kart içindeki çıplak form alanları (karne/tebliğ seçimleri, açıklama kutuları) */
+.card select,.card textarea,.card input[type=text],.card input[type=number],.card input:not([type]){border:1px solid var(--line);border-radius:9px;background:var(--surface-2);color:var(--ink);font-family:inherit;font-size:13px}
+.card select{padding:6px 10px;min-height:34px}
+.card textarea{padding:10px 12px}
+.card select:focus,.card textarea:focus,.card input:focus{outline:2px solid rgba(185,139,55,.55);border-color:var(--accent)}
+</style>
 <style>
 /* ===== Karne akışı: adım şeridi + yeni Performans Panosu (lacivert / pirinç) ===== */
 .subtabs.kk-adimlar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px;margin:0 0 16px;border:0;border-radius:16px;background:radial-gradient(120% 140% at 85% 0%,#1d3d63 0%,#0e1f37 42%,#0a182c 100%);box-shadow:0 10px 28px rgba(10,24,44,.16)}
