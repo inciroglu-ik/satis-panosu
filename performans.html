@@ -583,7 +583,7 @@ function durumSakla() { try { UST.__perfDurum = { marka: V.marka, yil: YIL, S: J
 function yeniden(d) { try { UST.__perfDurum = { marka: d.marka, yil: d.yil, S: null }; } catch (e) { } location.reload(); }
 
 /* Üst bilgi: marka / yıl seçimi */
-$('ustEtiket').textContent = MARKA_AD + ' · ' + (V.rol === 'admin' ? 'İK Yönetici Görünümü' : 'Marka Müdürü Panosu');
+$('ustEtiket').textContent = MARKA_AD + ' · ' + (V.rol === 'admin' ? 'İK Yönetici Görünümü' : V.rol === 'viewer' ? 'Direktör Görünümü · salt okunur' : 'Marka Müdürü Panosu');
 (function () {
   const al = $('markaAlan');
   if (V.markalar.length > 1) {
@@ -796,6 +796,19 @@ function isiCiz(danlar) {
       c.textContent = v === null ? '—' : yv(v); c.style.setProperty('--o', (v ?? 0) / 100); c.style.setProperty('--isi-cubuk', 'var(--lac-500)'); if (v !== null) tumu.push(v); el.appendChild(c);
     });
     const c = document.createElement('div'); c.className = 'isi-hucre son isi-ort'; const v = ort(tumu); c.textContent = v === null ? '—' : yv(v); c.style.fontWeight = '700'; el.appendChild(c);
+    /* Aktif çalışanlar ortalaması (eski çalışanlar hariç) — kısa süre çalışıp ayrılan ortalamayı yanıltmasın */
+    const aktif = danlar.filter(d => !d.eski);
+    if (aktif.length && aktif.length < danlar.length) {
+      const adA = document.createElement('div'); adA.className = 'isi-ad'; adA.innerHTML = '<b></b><small>eski çalışanlar hariç</small>'; adA.querySelector('b').textContent = 'Aktif çalışanlar ortalaması'; el.appendChild(adA);
+      const tumA = [];
+      ayl.forEach(a => {
+        const ks = kesinler(aktif.map(d => d.id), [a]); const cA = document.createElement('div'); cA.className = 'isi-hucre isi-ort';
+        let vA = null;
+        if (!S.metrik) vA = ort(ks.map(k => k.bas)); else { const x = ks.map(k => k.m[S.metrik]).filter(x => x.d !== 'EY'); vA = x.length ? x.filter(x => x.d === 'B').length / x.length * 100 : null; }
+        cA.textContent = vA === null ? '—' : yv(vA); cA.style.setProperty('--o', (vA ?? 0) / 100); cA.style.setProperty('--isi-cubuk', 'var(--pir-500)'); if (vA !== null) tumA.push(vA); el.appendChild(cA);
+      });
+      const cS = document.createElement('div'); cS.className = 'isi-hucre son isi-ort'; const vS = ort(tumA); cS.textContent = vS === null ? '—' : yv(vS); cS.style.fontWeight = '700'; el.appendChild(cS);
+    }
   }
   if (!danlar.length) { const bos = document.createElement('div'); bos.style.gridColumn = '1 / -1'; bos.className = 'bos-durum'; bos.innerHTML = `<div class="bos-ikon">${ikon('filtre')}</div><h3>Bu filtrelerle karne bulunamadı</h3><p>Dönemi genişletin ya da filtreleri sıfırlayın.</p>`; el.appendChild(bos); }
   $('isiLejant').innerHTML = S.metrik
@@ -984,61 +997,92 @@ async function raporUret(yalnizKesin) {
   const kb = (d, a) => kapsamK.find(k => k.dan === d.id && k.ay === a) || null;
   const BASLIK = `${MARKA_AD.toLocaleUpperCase('tr')} SATIŞ DANIŞMANLARI — AYLIK PERFORMANS RAPORU (${YIL})`;
   const AYB = ayl.map(a => AYLAR[a]);
-  const C = { NAVY: 'FF132A44', HDR2: 'FF2D4A68', WHITE: 'FFFFFFFF', OK: 'FFD1F0DB', BAD: 'FFFAD6D6', EY: 'FFE4E6E9', AMB: 'FFFFF0C8', GRI: 'FF5A646E', CIZ: 'FFC8D0DA' };
+  /* Çeyrekler: yalnız rapordaki aylarla kesişenler */
+  const CEY = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11]].map((q, i) => ({ ad: 'Q' + (i + 1), aylar: q.filter(a => ayl.includes(a)), etiket: 'Q' + (i + 1) + ' (' + AY_KISA[q[0]] + '–' + AY_KISA[q[2]] + ')' })).filter(q => q.aylar.length);
+  const QB = CEY.map(q => q.etiket);
+  const TUM = new Set(danlar.map(d => d.id)), AKT = new Set(danlar.filter(d => !d.eski).map(d => d.id));
+  const eskiVar = AKT.size < TUM.size;
+  const kSec = (set, aylar) => kapsamK.filter(k => set.has(k.dan) && aylar.includes(k.ay));
+  const ortBas = ks => ks.length ? yv(ort(ks.map(k => k.bas))) : null;
+  const metOran = (ks, mt) => {
+    let h = 0, f = 0, b = 0, y = 0, n = 0;
+    ks.forEach(k => { const x = k.m[mt.key]; if (!x || x.d === 'EY') return; n++; if (mt.tip === 'sayi') { if (x.h > 0 && x.f != null) { h += x.h; f += x.f; } } else if (x.d === 'B') b++; else if (x.d === 'Y') y++; });
+    if (mt.tip === 'sayi') return h > 0 ? { v: yv(f / h * 100) } : (n ? { bos: true } : { ey: true });
+    return (b + y) ? { v: yv(b / (b + y) * 100) } : { ey: true };
+  };
+  const hfTop = ks => { let H = 0, F = 0, ph = 0, pf = 0, nh = 0, nf = 0, man = false;
+    ks.forEach(k => { const x = k.m.arac_satis; if (!x) return; if (x.h != null) { H += x.h; nh++; } if (x.f != null) { F += x.f; nf++; } if (x.h > 0 && x.f != null) { ph += x.h; pf += x.f; } if (x.manuel) man = true; });
+    return { h: nh ? H : null, f: nf ? F : null, o: ph > 0 ? yv(pf / ph * 100) : null, man }; };
+  const C = { NAVY: 'FF132A44', HDR2: 'FF2D4A68', BRASS: 'FF9C7428', WHITE: 'FFFFFFFF', OK: 'FFD1F0DB', BAD: 'FFFAD6D6', EY: 'FFE4E6E9', AMB: 'FFFFF0C8', GRI: 'FF5A646E', CIZ: 'FFC8D0DA', MOR: 'FFEEF3F9', PIR: 'FFFBF4E6' };
   const dolgu = c => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } });
   const ince = { style: 'thin', color: { argb: C.CIZ } }, kalin = { style: 'medium', color: { argb: C.NAVY } };
   const KENAR = { top: ince, left: ince, bottom: ince, right: ince };
   const ORTA = { horizontal: 'center', vertical: 'middle' };
+  const basRenk = v => v >= 80 ? C.OK : v >= 50 ? C.AMB : C.BAD;          /* aylık başarı / değerlendirme % */
+  const oranRenk = v => v >= 100 ? C.OK : v >= 70 ? C.AMB : C.BAD;        /* gerçekleşen / hedef % */
   const donemAd = DNM[S.donem].ad, danAd = S.dan ? DANI[S.dan].ad : 'Tüm danışmanlar';
   const hazir = new Date().toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const tasSay = kapsamK.filter(k => k.taslak).length, kesSay = kapsamK.length - tasSay;
   const notlar = [
     `Kaynak: Satış Panosu canlı karne verisi (satisKarneler), ${hazir} itibarıyla. ${donemAd}, ${kapsamK.length} karne (${kesSay} kesinleşen${tasSay ? ', ' + tasSay + ' taslak' : ''}).`,
     `Aylık başarı oranı = Müdürün "Başarılı" işaretlediği metrik sayısı / (${NMET} metrik − "Etkisi Yok" metrik) × 100.`,
-    'Metrik başarı % = Gerçekleşen / Hedef × 100. Sayısal hedefi olmayan metriklerde müdür değerlendirmesi yazılır.',
+    'Metrik başarı % = Gerçekleşen / Hedef × 100. Sayısal hedefi olmayan metriklerde müdür değerlendirmesi yazılır; çeyrek ve ortalama satırlarında "Başarılı" işaretlenen karnelerin oranı (%) verilir.',
+    'Çeyrek (Q) sütunları: aylık başarıda ilgili karnelerin ortalaması; metrik ve satış sayfalarında çeyrek toplam gerçekleşen / toplam hedef.',
+    'Marka ortalaması tüm danışmanları kapsar. Aktif çalışanlar ortalaması, sistemde eski çalışan olarak işaretlenen danışmanları hariç tutar (kısa süre çalışıp ayrılanlar ortalamayı yanıltmasın diye).',
     'Araç Satış Adedi\'nin Hedef / Gerçekleşen değerleri "Satış Hedef - Fiili" sayfasında rakamsal verilmiştir; elle girilen fiili değerler hücre notuyla işaretlidir.',
     ...danlar.filter(d => d.eski || d.yeni).map(d => `${d.ad}: ${d.alt}.`)
   ];
   const wb = new ExcelJS.Workbook(); wb.creator = 'İnciroğlu Otomotiv · Satış Panosu'; wb.created = new Date();
   const baslikYaz = (ws, metin, nc, boyut) => { ws.mergeCells(1, 1, 1, nc); const c = ws.getCell(1, 1); c.value = metin; c.font = { bold: true, size: boyut, color: { argb: C.NAVY } }; c.alignment = { vertical: 'middle' }; ws.getRow(1).height = 26; };
-  const basliklar = (ws, r, degerler, renk) => { const row = ws.getRow(r); degerler.forEach((v, i) => { const c = row.getCell(i + 1); c.value = v; c.fill = dolgu(renk); c.font = { bold: true, color: { argb: C.WHITE } }; c.alignment = ORTA; c.border = KENAR; }); row.height = 20; };
+  const basliklar = (ws, r, degerler, renkler) => { const row = ws.getRow(r); degerler.forEach((v, i) => { const c = row.getCell(i + 1); c.value = v; c.fill = dolgu(renkler[i]); c.font = { bold: true, color: { argb: C.WHITE } }; c.alignment = Object.assign({ wrapText: true }, ORTA); c.border = KENAR; }); row.height = 30; };
   const dipNot = (ws, r, nc, metin) => { ws.mergeCells(r, 1, r, nc); const c = ws.getCell(r, 1); c.value = metin; c.font = { size: 9, italic: true, color: { argb: C.GRI } }; };
+  const yuzdeHucre = (c, v, renk, not) => { c.alignment = ORTA; c.border = KENAR; if (v === null || v === undefined) return; c.value = v; c.numFmt = '0"%"'; c.fill = dolgu(renk(v)); if (not) c.note = not; };
+  const ozetSatirStil = (row, nc, renk) => { for (let i = 1; i <= nc; i++) { const c = row.getCell(i); c.border = Object.assign({}, KENAR, i ? {} : {}); c.font = Object.assign({}, c.font || {}, { bold: true }); if (!c.fill || i === 1) c.fill = dolgu(renk); } };
 
-  /* 1) Aylık Başarı Özeti */
+  /* ---------- 1) Aylık Başarı Özeti ---------- */
   const w1 = wb.addWorksheet('Aylık Başarı Özeti', { views: [{ state: 'frozen', xSplit: 1, ySplit: 3 }] });
-  const nc1 = ayl.length + 2;
+  const nc1 = 1 + ayl.length + CEY.length + 1;
   baslikYaz(w1, BASLIK, nc1, 15);
   w1.mergeCells(2, 1, 2, nc1); w1.getCell(2, 1).value = `Dönem: ${donemAd} · ${danAd} · ${yalnizKesin ? 'yalnız kesinleşen karneler' : 'kesinleşen + taslak karneler'} · Hazırlanma: ${hazir}`;
   w1.getCell(2, 1).font = { italic: true, size: 9, color: { argb: C.GRI } };
-  basliklar(w1, 3, ['DANIŞMAN', ...AYB, 'Ortalama'], C.NAVY);
+  basliklar(w1, 3, ['DANIŞMAN', ...AYB, ...QB, 'Ortalama'], ['DANIŞMAN', ...AYB].map(() => C.NAVY).concat(QB.map(() => C.HDR2), [C.NAVY]));
   const ortlar = [];
   danlar.forEach((d, i) => {
     const row = w1.getRow(4 + i); const c0 = row.getCell(1); c0.value = d.ad; c0.font = { bold: true }; c0.border = KENAR;
-    const vals = [];
     ayl.forEach((a, j) => {
       const k = kb(d, a), c = row.getCell(2 + j); c.alignment = ORTA; c.border = KENAR;
       if (!k) return;
-      c.value = k.bas; c.numFmt = '0"%"'; vals.push(k.bas);
-      c.fill = dolgu(k.bas >= 80 ? C.OK : k.bas >= 50 ? C.AMB : C.BAD);
       const not = []; if (k.taslak) not.push('Taslak karne (kesinleşmedi)'); if (k.EY === NMET) not.push('Tüm metrikler Etkisi Yok');
-      if (not.length) c.note = not.join(' · ');
-      if (k.taslak) c.font = { italic: true };
+      yuzdeHucre(c, k.bas, basRenk, not.join(' · ') || null); if (k.taslak) c.font = { italic: true };
     });
-    const o = vals.length ? yv(ort(vals)) : null; ortlar.push(o);
-    const c = row.getCell(nc1); c.border = KENAR; c.alignment = ORTA;
-    if (o !== null) { c.value = o; c.numFmt = '0"%"'; c.font = { bold: true }; c.fill = dolgu(o >= 80 ? C.OK : o >= 50 ? C.AMB : C.BAD); }
+    CEY.forEach((q, j) => yuzdeHucre(row.getCell(2 + ayl.length + j), ortBas(kSec(new Set([d.id]), q.aylar)), basRenk));
+    const o = ortBas(kSec(new Set([d.id]), ayl)); ortlar.push(o);
+    const c = row.getCell(nc1); yuzdeHucre(c, o, basRenk); c.font = { bold: true };
   });
-  const r1 = 4 + danlar.length + 1;
-  dipNot(w1, r1, nc1, 'Renk: Yeşil ≥ %80 Başarılı · Amber %50–79 Sınırda · Kırmızı < %50 Yetersiz · İtalik = taslak karne.');
+  let r1 = 4 + danlar.length;
+  const ozet1 = (r, etiket, set, renk) => {
+    const row = w1.getRow(r); const c0 = row.getCell(1); c0.value = etiket; c0.font = { bold: true }; c0.fill = dolgu(renk); c0.border = { top: kalin, left: ince, bottom: ince, right: ince }; c0.alignment = { wrapText: true, vertical: 'middle' };
+    ayl.forEach((a, j) => yuzdeHucre(row.getCell(2 + j), ortBas(kSec(set, [a])), basRenk));
+    CEY.forEach((q, j) => yuzdeHucre(row.getCell(2 + ayl.length + j), ortBas(kSec(set, q.aylar)), basRenk));
+    yuzdeHucre(row.getCell(nc1), ortBas(kSec(set, ayl)), basRenk);
+    for (let i = 1; i <= nc1; i++) { const c = row.getCell(i); c.font = Object.assign({}, c.font || {}, { bold: true }); c.border = Object.assign({}, c.border || KENAR, { top: kalin }); }
+    row.height = 30;
+  };
+  ozet1(r1, 'MARKA ORTALAMASI (tüm danışmanlar)', TUM, C.MOR);
+  ozet1(r1 + 1, 'AKTİF ÇALIŞANLAR ORTALAMASI' + (eskiVar ? ' (eski çalışanlar hariç)' : ''), AKT.size ? AKT : TUM, C.PIR);
+  r1 += 3;
+  dipNot(w1, r1, nc1, 'Renk: Yeşil ≥ %80 Başarılı · Amber %50–79 Sınırda · Kırmızı < %50 Yetersiz · İtalik = taslak karne · Q = çeyrek.');
   notlar.forEach((n, i) => { const r = r1 + 2 + i; w1.mergeCells(r, 1, r, nc1); const c = w1.getCell(r, 1); c.value = '- ' + n; c.font = { size: 9, color: { argb: C.GRI } }; c.alignment = { wrapText: true, vertical: 'top' }; w1.getRow(r).height = n.length > 120 ? 26 : 15; });
-  w1.getColumn(1).width = 30; for (let j = 2; j <= nc1; j++) w1.getColumn(j).width = 11;
+  w1.getColumn(1).width = 34; for (let j = 2; j <= nc1; j++) w1.getColumn(j).width = j > 1 + ayl.length && j < nc1 ? 13 : 11;
 
-  /* 2) Metrik Bazında Başarı % */
+  /* ---------- 2) Metrik Bazında Başarı % ---------- */
   const w2 = wb.addWorksheet('Metrik Bazında Başarı %', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
-  const nc2 = ayl.length + 2;
+  const nc2 = 2 + ayl.length + CEY.length;
   baslikYaz(w2, BASLIK + ' - Metrik Bazında Başarı %', nc2, 13);
-  basliklar(w2, 2, ['', 'METRİK', ...AYB], C.HDR2);
+  basliklar(w2, 2, ['', 'METRİK', ...AYB, ...QB], ['', 'METRİK', ...AYB].map(() => C.HDR2).concat(QB.map(() => C.NAVY)));
   const DUR_AD = { B: 'Başarılı', Y: 'Yetersiz', EY: 'Etkisi Yok' };
+  const metRenk = mt => (mt.tip === 'sayi' ? oranRenk : basRenk);
+  const qHucre = (c, sonuc, mt) => { c.alignment = ORTA; c.border = KENAR; if (!sonuc || sonuc.bos) return; if (sonuc.ey) { c.value = 'Etkisi Yok'; c.fill = dolgu(C.EY); return; } yuzdeHucre(c, sonuc.v, metRenk(mt)); };
   let r2 = 3;
   danlar.forEach(d => {
     w2.mergeCells(r2, 1, r2, nc2); const bc = w2.getCell(r2, 1); bc.value = d.ad + (d.eski || d.yeni ? '  (' + d.alt + ')' : ''); bc.fill = dolgu(C.NAVY); bc.font = { bold: true, color: { argb: C.WHITE } }; r2++;
@@ -1053,39 +1097,59 @@ async function raporUret(yalnizKesin) {
         if (x.manuel) c.note = 'Fiili elle girildi (Satış Panosu)';
         if (k.taslak) c.font = { italic: true };
       });
+      CEY.forEach((q, j) => qHucre(row.getCell(3 + ayl.length + j), metOran(kSec(new Set([d.id]), q.aylar), mt), mt));
       r2++;
     });
   });
-  dipNot(w2, r2 + 1, nc2, 'Renk: Yeşil = Başarılı · Kırmızı = Yetersiz · Gri = Etkisi Yok (müdür değerlendirmesi). % = Gerçekleşen / Hedef × 100. İtalik = taslak karne.');
-  w2.getColumn(1).width = 3; w2.getColumn(2).width = 38; for (let j = 3; j <= nc2; j++) w2.getColumn(j).width = 11;
-
-  /* 3) Satış Hedef - Fiili */
-  const w3 = wb.addWorksheet('Satış Hedef - Fiili', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
-  const nc3 = ayl.length + 2;
-  baslikYaz(w3, BASLIK + ' - Satış Hedef - Fiili (Araç Satış Adedi — adet)', nc3, 13);
-  basliklar(w3, 2, ['DANIŞMAN', 'Satır', ...AYB], C.NAVY);
-  const aylikH = ayl.map(() => 0), aylikF = ayl.map(() => 0);
-  let r3 = 3;
-  danlar.forEach(d => {
-    w3.mergeCells(r3, 1, r3 + 2, 1); const ad = w3.getCell(r3, 1); ad.value = d.ad; ad.font = { bold: true }; ad.alignment = { vertical: 'middle', wrapText: true };
-    ['Hedef', 'Fiili (Gerçekleşen)', 'Başarı %'].forEach((t, i) => { const c = w3.getCell(r3 + i, 2); c.value = t; if (i === 2) c.font = { italic: true }; });
-    ayl.forEach((a, j) => {
-      const k = kb(d, a), x = k ? k.m.arac_satis : null, col = 3 + j;
-      const ch = w3.getCell(r3, col), cf = w3.getCell(r3 + 1, col), cb = w3.getCell(r3 + 2, col);
-      [ch, cf, cb].forEach(c => { c.alignment = ORTA; });
-      if (!x) return;
-      if (x.h != null) { ch.value = x.h; if (x.f != null && x.d !== 'EY') aylikH[j] += x.h; }
-      if (x.f != null) { cf.value = x.f; if (x.h != null && x.d !== 'EY') aylikF[j] += x.f; if (x.manuel) cf.note = 'Fiili elle girildi (Satış Panosu)'; }
-      if (x.h > 0 && x.f != null) { const o = yv(x.f / x.h * 100); cb.value = o; cb.numFmt = '0"%"'; cb.fill = dolgu(o >= 100 ? C.OK : o >= 70 ? C.AMB : C.BAD); }
-      if (k.taslak) [ch, cf, cb].forEach(c => { c.font = { italic: true }; });
+  const ozet2 = (etiket, set, renk) => {
+    r2++; w2.mergeCells(r2, 1, r2, nc2); const bc = w2.getCell(r2, 1); bc.value = etiket; bc.fill = dolgu(C.BRASS); bc.font = { bold: true, color: { argb: C.WHITE } }; r2++;
+    METRIKLER.forEach(mt => {
+      const row = w2.getRow(r2); row.getCell(1).border = KENAR; row.getCell(1).fill = dolgu(renk); const ca = row.getCell(2); ca.value = mt.ad; ca.border = KENAR; ca.fill = dolgu(renk); ca.font = { bold: true };
+      ayl.forEach((a, j) => qHucre(row.getCell(3 + j), metOran(kSec(set, [a]), mt), mt));
+      CEY.forEach((q, j) => qHucre(row.getCell(3 + ayl.length + j), metOran(kSec(set, q.aylar), mt), mt));
+      r2++;
     });
-    for (let i = 0; i < 3; i++) for (let c = 1; c <= nc3; c++) w3.getCell(r3 + i, c).border = { top: ince, left: ince, right: ince, bottom: i === 2 ? kalin : ince };
-    r3 += 3;
-  });
-  dipNot(w3, r3 + 1, nc3, 'Renk: Yeşil ≥ %100 · Amber %70–99 · Kırmızı < %70. Başarı % = Fiili / Hedef × 100. İtalik = taslak karne.');
-  w3.getColumn(1).width = 28; w3.getColumn(2).width = 20; for (let j = 3; j <= nc3; j++) w3.getColumn(j).width = 10;
+  };
+  ozet2('MARKA ORTALAMASI (tüm danışmanlar)', TUM, C.MOR);
+  ozet2('AKTİF ÇALIŞANLAR ORTALAMASI' + (eskiVar ? ' (eski çalışanlar hariç)' : ''), AKT.size ? AKT : TUM, C.PIR);
+  dipNot(w2, r2 + 1, nc2, 'Renk: Yeşil = Başarılı (≥ %100 gerçekleşme) · Kırmızı = Yetersiz · Gri = Etkisi Yok. Değerlendirme metriklerinde ortalama/çeyrek = "Başarılı" karne oranı (≥ %80 yeşil). İtalik = taslak.');
+  w2.getColumn(1).width = 3; w2.getColumn(2).width = 38; for (let j = 3; j <= nc2; j++) w2.getColumn(j).width = j > 2 + ayl.length ? 13 : 11;
 
-  /* 4) Grafikler */
+  /* ---------- 3) Satış Hedef - Fiili ---------- */
+  const w3 = wb.addWorksheet('Satış Hedef - Fiili', { views: [{ state: 'frozen', xSplit: 2, ySplit: 2 }] });
+  const nc3 = 2 + ayl.length + CEY.length;
+  baslikYaz(w3, BASLIK + ' - Satış Hedef - Fiili (Araç Satış Adedi — adet)', nc3, 13);
+  basliklar(w3, 2, ['DANIŞMAN', 'Satır', ...AYB, ...QB], ['DANIŞMAN', 'Satır', ...AYB].map(() => C.NAVY).concat(QB.map(() => C.HDR2)));
+  let r3 = 3;
+  const hfBlok = (etiket, hucreler, renk) => {
+    w3.mergeCells(r3, 1, r3 + 2, 1); const ad = w3.getCell(r3, 1); ad.value = etiket; ad.font = { bold: true }; ad.alignment = { vertical: 'middle', wrapText: true }; if (renk) ad.fill = dolgu(renk);
+    ['Hedef', 'Fiili (Gerçekleşen)', 'Başarı %'].forEach((t, i) => { const c = w3.getCell(r3 + i, 2); c.value = t; if (i === 2) c.font = { italic: true }; if (renk) { c.fill = dolgu(renk); c.font = Object.assign({}, c.font || {}, { bold: true }); } });
+    hucreler.forEach((h, j) => {
+      const col = 3 + j, ch = w3.getCell(r3, col), cf = w3.getCell(r3 + 1, col), cb = w3.getCell(r3 + 2, col);
+      [ch, cf, cb].forEach(c => { c.alignment = ORTA; });
+      if (!h) return;
+      if (h.h != null) ch.value = h.h; if (h.f != null) { cf.value = h.f; if (h.man) cf.note = 'Elle girilen fiili içerir (Satış Panosu)'; }
+      if (h.o != null) { cb.value = h.o; cb.numFmt = '0"%"'; cb.fill = dolgu(oranRenk(h.o)); }
+      if (h.italik) [ch, cf, cb].forEach(c => { c.font = { italic: true }; });
+      if (renk) [ch, cf].forEach(c => { c.font = Object.assign({}, c.font || {}, { bold: true }); });
+    });
+    for (let i = 0; i < 3; i++) for (let c = 1; c <= nc3; c++) w3.getCell(r3 + i, c).border = { top: i === 0 && renk ? kalin : ince, left: ince, right: ince, bottom: i === 2 ? kalin : ince };
+    r3 += 3;
+  };
+  danlar.forEach(d => {
+    const tek = new Set([d.id]);
+    const hucreler = ayl.map(a => { const k = kb(d, a), x = k ? k.m.arac_satis : null; if (!x) return null;
+      return { h: x.h, f: x.f, o: (x.h > 0 && x.f != null) ? yv(x.f / x.h * 100) : null, man: !!x.manuel, italik: !!k.taslak }; })
+      .concat(CEY.map(q => hfTop(kSec(tek, q.aylar))));
+    hfBlok(d.ad, hucreler, null);
+  });
+  const ozetHf = set => ayl.map(a => hfTop(kSec(set, [a]))).concat(CEY.map(q => hfTop(kSec(set, q.aylar))));
+  hfBlok('MARKA GENELİ (tüm danışmanlar · toplam)', ozetHf(TUM), C.MOR);
+  hfBlok('AKTİF ÇALIŞANLAR' + (eskiVar ? ' (eski çalışanlar hariç)' : '') + ' · toplam', ozetHf(AKT.size ? AKT : TUM), C.PIR);
+  dipNot(w3, r3 + 1, nc3, 'Renk: Yeşil ≥ %100 · Amber %70–99 · Kırmızı < %70. Başarı % = Fiili / Hedef × 100 (çeyrek ve toplam satırlarında toplamlar üzerinden). İtalik = taslak karne.');
+  w3.getColumn(1).width = 30; w3.getColumn(2).width = 20; for (let j = 3; j <= nc3; j++) w3.getColumn(j).width = j > 2 + ayl.length ? 13 : 10;
+
+  /* ---------- 4) Grafikler ---------- */
   const w4 = wb.addWorksheet('Grafikler');
   w4.getColumn(1).width = 2;
   w4.mergeCells(1, 2, 1, 16); w4.getCell(1, 2).value = BASLIK + ' - Grafikler'; w4.getCell(1, 2).font = { bold: true, size: 15, color: { argb: C.NAVY } };
@@ -1094,17 +1158,26 @@ async function raporUret(yalnizKesin) {
     const c = w4.getCell(r, 2); c.value = baslik; c.font = { bold: true, size: 13, color: { argb: C.NAVY } };
     const id = wb.addImage({ base64: b64, extension: 'png' }); w4.addImage(id, { tl: { col: 1, row: r }, ext: { width: 900, height: 378 } });
   };
-  const sirali = danlar.map((d, i) => ({ ad: d.ad, o: ortlar[i] })).filter(x => x.o !== null).sort((a, b) => b.o - a.o);
+  const sirali = danlar.map((d, i) => ({ ad: d.ad + (d.eski ? ' (eski)' : ''), o: ortlar[i] })).filter(x => x.o !== null).sort((a, b) => b.o - a.o);
   resim(4, 'Danışman bazında ortalama başarı (%)', grafikPng('bar',
     { labels: sirali.map(x => x.ad), datasets: [{ label: 'Ortalama başarı %', data: sirali.map(x => x.o), backgroundColor: sirali.map(x => x.o >= 80 ? '#23955f' : x.o >= 50 ? '#d9a12b' : '#cc4444'), borderRadius: 4 }] },
     { indexAxis: 'y', scales: { x: { min: 0, max: 100 } }, plugins: { legend: { display: false } } }));
-  const ekip = ayl.map(a => { const v = kapsamK.filter(k => k.ay === a).map(k => k.bas); return v.length ? yv(ort(v)) : null; });
-  resim(26, 'Aylık ekip ortalama başarısı (%)', grafikPng('line',
-    { labels: AYB, datasets: [{ label: 'Ekip ortalaması %', data: ekip, borderColor: '#1b3a5e', backgroundColor: 'rgba(27,58,94,.12)', fill: true, tension: .3, pointRadius: 5, pointBackgroundColor: '#b98b37', pointBorderColor: '#fff' }] },
+  resim(26, 'Aylık ekip ortalama başarısı (%) — marka ortalaması / aktif çalışanlar', grafikPng('line',
+    { labels: AYB, datasets: [
+      { label: 'Marka ortalaması', data: ayl.map(a => ortBas(kSec(TUM, [a]))), borderColor: '#1b3a5e', backgroundColor: 'rgba(27,58,94,.10)', fill: true, tension: .3, pointRadius: 5, pointBackgroundColor: '#1b3a5e', pointBorderColor: '#fff' },
+      { label: 'Aktif çalışanlar', data: ayl.map(a => ortBas(kSec(AKT.size ? AKT : TUM, [a]))), borderColor: '#b98b37', backgroundColor: '#b98b37', borderDash: [6, 4], tension: .3, pointRadius: 4, pointBorderColor: '#fff' }] },
     { scales: { y: { min: 0, max: 100 } } }));
-  if (MET.arac_satis) resim(48, 'Araç satış adedi — aylık hedef / gerçekleşen (toplam)', grafikPng('bar',
-    { labels: AYB, datasets: [{ type: 'bar', label: 'Gerçekleşen', data: aylikF, backgroundColor: '#2f6db5', borderRadius: 4, order: 2 }, { type: 'line', label: 'Hedef', data: aylikH, borderColor: '#c08a2e', backgroundColor: '#c08a2e', borderWidth: 2, pointRadius: 4, tension: .3, order: 1 }] },
-    { scales: { y: { beginAtZero: true } } }));
+  resim(48, 'Çeyreklik ekip başarısı (%) — marka ortalaması / aktif çalışanlar', grafikPng('bar',
+    { labels: QB, datasets: [
+      { label: 'Marka ortalaması', data: CEY.map(q => ortBas(kSec(TUM, q.aylar))), backgroundColor: '#1b3a5e', borderRadius: 4 },
+      { label: 'Aktif çalışanlar', data: CEY.map(q => ortBas(kSec(AKT.size ? AKT : TUM, q.aylar))), backgroundColor: '#b98b37', borderRadius: 4 }] },
+    { scales: { y: { min: 0, max: 100 } } }));
+  if (MET.arac_satis) {
+    const ay3 = ayl.map(a => hfTop(kSec(TUM, [a])));
+    resim(70, 'Araç satış adedi — aylık hedef / gerçekleşen (marka toplamı)', grafikPng('bar',
+      { labels: AYB, datasets: [{ type: 'bar', label: 'Gerçekleşen', data: ay3.map(x => x.f), backgroundColor: '#2f6db5', borderRadius: 4, order: 2 }, { type: 'line', label: 'Hedef', data: ay3.map(x => x.h), borderColor: '#c08a2e', backgroundColor: '#c08a2e', borderWidth: 2, pointRadius: 4, tension: .3, order: 1 }] },
+      { scales: { y: { beginAtZero: true } } }));
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   const ad = `${MARKA_AD} Satış Danışmanları - Aylık Performans Raporu ${YIL} (${donemAd.replace(YIL + ' · ', '')}${S.dan ? ' - ' + danAd : ''}).xlsx`.replace(/[\\/:*?"<>|]/g, '-');

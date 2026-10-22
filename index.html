@@ -474,6 +474,8 @@ td.name{font-weight:600}
 .kk-m small{font-size:12px;color:#9fb1cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .kk-adimlar .subtab.kk-ek{all:unset;box-sizing:border-box;align-self:center;padding:9px 14px;border-radius:10px;cursor:pointer;color:#e0c38a;font:600 13px Inter,system-ui,sans-serif;box-shadow:inset 0 0 0 1px rgba(207,167,90,.45);white-space:nowrap}
 .kk-adimlar .subtab.kk-ek.on{background:#b98b37;color:#1d1405}
+.subtabs.kk-adimlar.kk-5{grid-template-columns:repeat(3,minmax(0,1fr)) auto auto}
+.kk-salt{align-self:center;color:#9fb1cc;font:600 12px Inter,system-ui,sans-serif;padding:0 6px;white-space:nowrap}
 .kk-perf{display:block;width:100%;height:1600px;border:0;border-radius:0 0 16px 16px;background:#f4f6f9}
 .kk-klasik-link{text-align:right;margin:10px 4px 0;font-size:12px}.kk-klasik-link.kk-sol{text-align:left;margin:0 0 12px}
 .kk-klasik-link a{color:#5d6878;text-decoration:underline}
@@ -970,6 +972,7 @@ function buildTabs(){
     tabs=[['genel','Genel Bakış'],['marka','Marka Analizi'],
         ['danisman','Danışman Analizi'],['veri','Veri']];
     if(SES.rol==='admin'){tabs.push(['karne','Karne']);tabs.push(['yonetim','Yönetim ⚙']);}
+    if(SES.rol==='viewer')tabs.push(['karne','Karne']); /* direktör: karne/tebliğ SALT OKUNUR */
   }
   document.getElementById('tabs').innerHTML=tabs.map(t=>
     '<button class="tab'+(TAB===t[0]?' on':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>').join('');
@@ -1624,6 +1627,18 @@ function tebligHedefMap(yil,ay,marka,dan){
   if(t)(t.metrikler||[]).forEach(function(r){ if(r.hedef!=null)map[r.key]=r.hedef; });
   return map;
 }
+/* Tebliğ hedeflerini karnenin metrik yapısına çevirir: karnede Kasko/Sigorta TEK satırsa (sigorta satırı yoksa)
+   tebliğdeki Kasko + Sigorta hedefleri toplanır. */
+function tebligHedefKarneMap(yil,ay,marka,dan){
+  var t=tebligHedefMap(yil,ay,marka,dan);
+  var keys=karneMetrikleri(marka).map(function(m){return m.key;});
+  if(keys.indexOf('sigorta')<0&&t.hasOwnProperty('sigorta')){
+    var kk=t.hasOwnProperty('kasko')?Number(t.kasko):NaN, ss=Number(t.sigorta);
+    if(!isNaN(kk)||!isNaN(ss))t.kasko=(isNaN(kk)?0:kk)+(isNaN(ss)?0:ss);
+    delete t.sigorta;
+  }
+  return t;
+}
 function karneDefaultRows(marka,yil,ay,dan){
   var copilotKapali=karneCopilotKapaliMi(marka,yil,ay);
   var f=copilotKapali?manuelFactOnly(marka,dan,yil,ay):karneFact(marka,dan,yil,ay);
@@ -1635,11 +1650,10 @@ function karneDefaultRows(marka,yil,ay,dan){
      penetrasyona ulaşan danışman oran>=1 olduğundan otomatik "Başarılı" çıkar. */
   var kaskoOrani=marka==='2.El'?0.70:0.80;
   var kaskoHedef=(acGerc!=null)?Math.ceil(acGerc*kaskoOrani):null;
-  /* Sadece Opel'de: Hedef Tebliğ formu bu dönem için zaten dolduysa, çalışana
-     resmi olarak bildirilen o hedefler Copilot/varsayılan hesaplamanın ÖNÜNE
-     geçer — tebliğ edilenden farklı bir hedefe göre değerlendirme yapılmasın
-     diye. Diğer markalarda Karne'nin hedef mantığı değişmedi. */
-  var tebligHedef=marka==='Opel'?tebligHedefMap(yil,ay,marka,dan):{};
+  /* Hedef Tebliğ formu bu dönem için dolduysa, çalışana resmi olarak bildirilen hedefler Copilot/varsayılan
+     hesaplamanın ÖNÜNE geçer — TÜM markalarda (kullanıcı kararı 22.10.2026; önceden yalnız Opel).
+     Bu yalnız YENİ karnenin varsayılanıdır; kayıtlı karnelere dokunmaz, müdür karnede değiştirebilir. */
+  var tebligHedef=tebligHedefKarneMap(yil,ay,marka,dan);
   if(tebligHedef.arac_satis!=null)acHedef=tebligHedef.arac_satis;
   return karneMetrikleri(marka).map(function(m){
     if(karneMetrikKilitliMi(yil,ay,m.key))return {key:m.key,hedef:null,gerceklesen:null,subeOrt:null,durum:'Etkisi Yok'};
@@ -1967,8 +1981,21 @@ function karneYazdirAc(k){
   win.focus();
   setTimeout(function(){try{win.print();}catch(_){}},300);
 }
+/* Çıktı Al'dan önce ekrandaki son değişiklikler otomatik kaydedilir (kullanıcı kararı 22.10.2026).
+   Kayıt başarısızsa (eksik alan vb.) çıktı açılmaz; formdaki uyarı görünür. */
+function karneCiktiOncesiKaydet(k){
+  if(!k||k.ciktiTarihi)return true;
+  var y=document.getElementById('kYil'),a=document.getElementById('kAy'),d=document.getElementById('kDan');
+  if(!y||!a||!d||+y.value!==+k.yil||+a.value!==+k.ay||d.value!==k.danisman)return true;
+  var rows=karneOkuFormdan(k.yil,k.ay), plan=(document.getElementById('kPlan')||{}).value||'';
+  if(JSON.stringify(rows)===JSON.stringify(k.metrikler||[])&&plan===(k.gelisimPlani||''))return true;
+  var once=k.guncelleme; karneKaydet(k.durum==='kesinlesen');
+  var k2=karneById(k.id); return !!k2&&k2.guncelleme!==once;
+}
 function karneCiktiAl(id){
   var k=karneById(id); if(!k)return;
+  if(!karneCiktiOncesiKaydet(k)){toast('⚠ Değişiklikler kaydedilemedi, çıktı alınmadı. Formdaki uyarıyı kontrol edin.');return;}
+  k=karneById(id); if(!k)return;
   if(!k.ciktiTarihi){
     var now=new Date().toISOString();
     k.ciktiTarihi=now; k.log=k.log||[]; k.log.push({tarih:now,olay:'cikti_alindi',kullanici:SES.ad});
@@ -2131,8 +2158,19 @@ function tebligYazdirAc(t){
   win.focus();
   setTimeout(function(){try{win.print();}catch(_){}},300);
 }
+function tebligCiktiOncesiKaydet(t){
+  if(!t||t.ciktiTarihi)return true;
+  var y=document.getElementById('tYil'),a=document.getElementById('tAy'),d=document.getElementById('tDan');
+  if(!y||!a||!d||+y.value!==+t.yil||+a.value!==+t.ay||d.value!==t.danisman)return true;
+  var rows=tebligOkuFormdan(t.marka);
+  if(JSON.stringify(rows)===JSON.stringify(t.metrikler||[]))return true;
+  var once=t.guncelleme; tebligKaydet();
+  var t2=tebligById(t.id); return !!t2&&t2.guncelleme!==once;
+}
 function tebligCiktiAl(id){
   var t=tebligById(id); if(!t)return;
+  if(!tebligCiktiOncesiKaydet(t)){toast('⚠ Değişiklikler kaydedilemedi, çıktı alınmadı. Formdaki uyarıyı kontrol edin.');return;}
+  t=tebligById(id); if(!t)return;
   if(!t.ciktiTarihi){
     var now=new Date().toISOString();
     t.ciktiTarihi=now; t.log=t.log||[]; t.log.push({tarih:now,olay:'cikti_alindi',kullanici:SES.ad});
@@ -2148,7 +2186,7 @@ function tebligCiktiAl(id){
 function tebligIkGonder(id){
   var t=tebligById(id); if(!t||!t.ciktiTarihi)return;
   var now=new Date().toISOString();
-  t.ikGonderildi=true; t.ikGonderTarihi=now; t.log=t.log||[]; t.log.push({tarih:now,olay:'ik_gonderildi',kullanici:SES.ad});
+  t.ikGonderildi=true; t.ikGonderTarihi=now; t.guncelleme=now; /* İK'ya canlı bildirim (kullanıcı kararı 22.10.2026) */ t.log=t.log||[]; t.log.push({tarih:now,olay:'ik_gonderildi',kullanici:SES.ad});
   VERI.tebligler=WORK.tebligler; tebligSaveLocal(); render();
   saveVeriJsDirect(false);
   if(window.SatisFB)window.SatisFB.pushTeblig(t).then(function(){basariToast('✓ İnsan Kaynakları\'na gönderildi.');}).catch(function(e){toast('⚠ Canlı panoya yazılamadı: '+e.message);});
@@ -2167,7 +2205,7 @@ function tebligRedGonder(id){
   var aciklama=ta?ta.value.trim():'';
   if(!aciklama){toast('⚠ Lütfen açıklama giriniz.');return;}
   var now=new Date().toISOString();
-  t.redMi=true; t.redAciklama=aciklama; t.redTarihi=now; t.redIkGonderildi=true; t.redIkGonderTarihi=now;
+  t.redMi=true; t.redAciklama=aciklama; t.redTarihi=now; t.redIkGonderildi=true; t.redIkGonderTarihi=now; t.guncelleme=now; /* İK'ya canlı bildirim */
   t.log=t.log||[]; t.log.push({tarih:now,olay:'red_ik_gonderildi',kullanici:SES.ad});
   VERI.tebligler=WORK.tebligler; tebligSaveLocal(); render();
   saveVeriJsDirect(false);
@@ -2316,7 +2354,7 @@ function tebligAdminListe(){
       +'<div style="display:flex;align-items:center;gap:10px;flex-shrink:0">'
       +durumBadge
       +(t.ciktiTarihi?'<button class="btn-sm" data-tyazdir="'+t.id+'" title="Formu görüntüle/yazdır">🖨 Yazdır</button>':'')
-      +'<button class="btn-sm" data-tebligsil="'+t.id+'" title="Kalıcı olarak sil" style="color:var(--bad);border-color:var(--bad)">🗑 Sil</button>'
+      +(SES.rol==='admin'?'<button class="btn-sm" data-tebligsil="'+t.id+'" title="Kalıcı olarak sil" style="color:var(--bad);border-color:var(--bad)">🗑 Sil</button>':'')
       +'<span class="caret">▶</span></div></div>';
     var itemBody=isOpen?('<div class="karne-item-body">'
       +tebligTableHtml(t.metrikler||[],true,t.yil,t.ay,t.marka)
@@ -2328,7 +2366,7 @@ function tebligAdminListe(){
 }
 function viewKarne(){
   if(SES.rol==='mudur')return viewKarneMudur();
-  if(SES.rol==='admin')return viewKarneAdmin();
+  if(SES.rol==='admin'||SES.rol==='viewer')return viewKarneAdmin(); /* direktör (viewer): salt okunur — silme düğmeleri gösterilmez, kurallar da yazmayı reddeder */
   return '<div class="empty">Bu bölüm için yetkiniz yok.</div>';
 }
 var karneMudurMarkaSec=null;
@@ -2521,7 +2559,7 @@ function karneAdminListe(){
       +'<span class="k-badge '+(karneDurumCls[k.durum]||'k-taslak')+'">'+(karneDurumMap[k.durum]||'Taslak')+'</span>'
       +(yetersiz?'<button class="btn-sm" data-gb="'+k.id+'" title="Performans geri bildirim metnini görüntüle/yazdır" style="color:var(--bad);border-color:var(--bad)">⚠ Geri Bildirim</button>':'')
       +'<button class="btn-sm" data-yazdir="'+k.id+'" title="Karne çıktısını görüntüle/yazdır">🖨 Yazdır</button>'
-      +'<button class="btn-sm" data-karnesil="'+k.id+'" title="Karneyi kalıcı olarak sil" style="color:var(--bad);border-color:var(--bad)">🗑 Sil</button>'
+      +(SES.rol==='admin'?'<button class="btn-sm" data-karnesil="'+k.id+'" title="Karneyi kalıcı olarak sil" style="color:var(--bad);border-color:var(--bad)">🗑 Sil</button>':'')
       +'<span class="caret">▶</span></div></div>';
     var itemBody=isOpen?('<div class="karne-item-body">'
       +karneTableHtml(k.metrikler||[],true,false,k.yil,k.ay,k.marka,k.danisman)
@@ -2537,7 +2575,7 @@ function karneAdminListe(){
    müdür yalnız kendi markasını (kapsam.satisMarka) alabilir, admin tüm markaları. Firestore'a hiçbir şey yazmaz. */
 function perfYetkiliMarkalar(){
   if(SES.rol==='mudur')return (''+(SES.marka||'')).split(',').map(function(s){return markaKanonik(s.trim());}).filter(Boolean);
-  if(SES.rol==='admin'){var s=new Set((DIM.markalar||[]).slice());(WORK.karneler||[]).forEach(function(k){if(k.marka)s.add(k.marka);});return [...s];}
+  if(SES.rol==='admin'||SES.rol==='viewer'){var s=new Set((DIM.markalar||[]).slice());(WORK.karneler||[]).forEach(function(k){if(k.marka)s.add(k.marka);});return [...s];}
   return [];
 }
 window.__perfVeriAl=function(markaIstek,yilIstek){
@@ -2596,11 +2634,12 @@ function kkAdimBandi(aktif,rol,marka,bitisik){
   if(rol==='mudur'){var bi=perfAdimBilgi(marka);
     A=[['teblig','Hedef Tebliğ',bi.teblig],['giris','Ay Sonu Karnesi',bi.karne],['dashboard','Performans',bi.performans]];}
   else A=[['tebligler','Hedef Tebliğleri',{durum:'Tüm markalar · tebliğ takibi'}],['liste','Karneler',{durum:'Tüm markalar · ay sonu karneleri'}],['dashboard','Performans',{durum:'Marka seç · filtrele · Excel raporu'}]];
-  var h='<div class="subtabs kk-adimlar'+(rol==='mudur'?'':' kk-4')+(bitisik?' kk-bitisik':'')+'">'+A.map(function(x,i){
+  var h='<div class="subtabs kk-adimlar'+(rol==='mudur'?'':(SES.rol==='viewer'?' kk-5':' kk-4'))+(bitisik?' kk-bitisik':'')+'">'+A.map(function(x,i){
     var on=aktif===x[0],ok=!!x[2].tamam&&!on;
     return '<button class="subtab karne-sub kk-adim'+(on?' on':'')+(ok?' tamam':'')+'" data-ksub="'+x[0]+'"><span class="kk-no">'+(ok?'✓':(i+1))+'</span><span class="kk-m"><b>'+(i+1)+' · '+esc(x[1])+'</b><small>'+esc(x[2].durum||'')+'</small></span></button>';
   }).join('');
   if(rol!=='mudur')h+='<button class="subtab karne-sub kk-ek'+(aktif==='disaAktar'?' on':'')+'" data-ksub="disaAktar">Veri Dışa Aktar</button>';
+  if(SES.rol==='viewer')h+='<span class="kk-salt" title="Direktör görünümü: kayıtlar görüntülenir, değiştirilemez">👁 Salt okunur</span>';
   return h+'</div>';
 }
 function karneDashboardHtml(opts){
@@ -3423,7 +3462,8 @@ function applyExcelData(res,lastMod){
   /* Bu bilgisayarda okunan yeni veriyi Firestore'a yaz → siteyi açan HERKESİN
      ekranı GitHub'a hiç yüklenmeden, anında güncellenir (bkz. applyLiveVeri). */
   if(window.SatisFB){
-    window.SatisFB.push({facts:VERI.factsAuto,manuelFiili:(WORK.manuelFiili)||[],butce:VERI.butce||null,butceDetay:VERI.butceDetay||null,guncelleme:VERI.meta.guncelleme})
+    window.SatisFB.push({facts:VERI.factsAuto,manuelFiili:(WORK.manuelFiili)||[],butce:VERI.butce||null,butceDetay:VERI.butceDetay||null,guncelleme:VERI.meta.guncelleme,
+      kaynakTarih:+(lastMod||Date.now()),kaynakDosya:String(XL.fileName||''),kaynakKim:String((SES&&SES.ad)||'')})
       .catch(function(e){toast('⚠ Canlı panoya yazılamadı: '+e.message);});
   }
 }
@@ -3445,6 +3485,21 @@ async function readExcelFile(f,force){
       res={facts:hffFacts,butce:hffBd.butce,butceDetay:hffBd.butceDetay};
     }
     if(!res.facts.length)throw new Error('DATA sayfasında geçerli satır yok');
+    /* ESKİ EXCEL KORUMASI (22.10.2026): bu bilgisayardaki Excel, canlı verinin kaynağından ESKİYSE otomatik okumada
+       ne ekrana uygulanır ne de canlı panoya yazılır — başka bilgisayardan yapılan yeni yüklemeyi ezmesin.
+       Elle "Excel Yükle"de eski dosya için onay sorulur. Canlı veri henüz gelmediyse otomatik okuma bekler. */
+    var _canli=window.SatisFB?window.SatisFB.latest:null;
+    if(window.SatisFB&&!_canli&&!force)return false;
+    var _canliT=(_canli&&_canli.kaynakTarih)?+_canli.kaynakTarih:0;
+    if(_canliT&&f.lastModified<_canliT){
+      if(!force){
+        XL.connected=true; XL.fileName=f.name; XL.lastMod=f.lastModified; XL.error=null; XL.needsPerm=false; XL.lost=false;
+        if(!XL._eskiUyari){XL._eskiUyari=true;toast('ℹ Bu bilgisayardaki Excel, canlı panodaki veriden eski — canlı veri gösteriliyor. Bu dosyayı güncellediğinizde otomatik yüklenir.');}
+        updateXlStatus(); return true;
+      }
+      if(!confirm('Seçtiğiniz Excel dosyası ('+new Date(f.lastModified).toLocaleString('tr-TR')+') canlı panodaki verinin kaynağından ('
+        +new Date(_canliT).toLocaleString('tr-TR')+(_canli.kaynakKim?' · '+_canli.kaynakKim:'')+') daha ESKİ.\n\nYine de yüklensin ve herkesin ekranında bu dosyanın verisi gösterilsin mi?'))return false;
+    }
     XL.connected=true; XL.fileName=f.name; XL.lastMod=f.lastModified; XL.error=null; XL.needsPerm=false; XL.lost=false;
     /* Veri ekrandakiyle AYNI ise yeniden ÇİZME (yenilemede "flaş" olmasın),
        bildirim de gösterme; yalnızca çip durumunu tazele. */
@@ -3667,7 +3722,8 @@ function tebligYeniGirisKontrol(list){
   if(onceki&&SES&&SES.rol==='admin'){
     (list||[]).forEach(function(t){
       if(guncel[t.id]!==onceki[t.id]){
-        adminBildirimGoster('📝 Hedef Tebliğ',(t.yoneticiAd||'Bir müdür')+' — '+t.danisman+' · '+AYLAR[t.ay-1]+' '+t.yil);
+        var _son=(t.log&&t.log.length)?t.log[t.log.length-1].olay:'';
+        adminBildirimGoster(_son==='ik_gonderildi'?'📤 Tebliğ İK\'ya Gönderildi':(_son==='red_ik_gonderildi'?'⚠ Tebliğ Alınmadı / İtiraz':'📝 Hedef Tebliğ'),(t.yoneticiAd||'Bir müdür')+' — '+t.danisman+' · '+AYLAR[t.ay-1]+' '+t.yil);
       }
     });
   }
