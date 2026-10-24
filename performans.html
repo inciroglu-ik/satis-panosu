@@ -67,6 +67,8 @@
   .izgara { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; align-items: start; }
   .s8 { grid-column: span 8; } .s4 { grid-column: span 4; } .s7 { grid-column: span 7; } .s5 { grid-column: span 5; } .s12 { grid-column: span 12; }
   .kart-ust .bolumlu button { height: 28px; font-size: 12px; }
+  .kpi-ey { display: block; margin-top: 5px; font-size: 11.5px; color: var(--ey-600); }
+  .isi-izgara.ey-sutun { grid-template-columns: 168px repeat(var(--n), minmax(48px, 1fr)) 64px 64px; min-width: calc(168px + var(--n) * 52px + 144px); }
   .isi-cift { display: grid; justify-items: center; line-height: 1.05; }
   .isi-cift small { font-size: 9px; font-weight: 700; letter-spacing: .08em; opacity: .85; }
   .kart-not { font-size: var(--fs-xs); color: var(--metin-3); margin-top: 14px; display: flex; gap: 6px; align-items: flex-start; }
@@ -660,11 +662,14 @@ function hucreDurumu(d, a) {
 }
 function danOzet(d, ayl = aylar()) {
   const ks = kesinler([d.id], ayl), mk = hfMetrik();
-  const o = { d, karne: ks.length, ort: ort(ks.map(k => k.bas)), B: 0, Y: 0, EY: 0, h: 0, f: 0, mB: 0, mY: 0, trend: ayl.map(a => { const k = karneBul(d.id, a); return k && !k.taslak ? k.bas : null; }) };
+  const o = { d, karne: ks.length, ort: ort(ks.map(k => k.bas)), B: 0, Y: 0, EY: 0, h: 0, f: 0, eyH: 0, eyF: 0, eyN: 0, mB: 0, mY: 0, trend: ayl.map(a => { const k = karneBul(d.id, a); return k && !k.taslak ? k.bas : null; }) };
   for (const k of ks) {
     if (S.metrik) { const x = k.m[S.metrik]; o[x.d] = (o[x.d] || 0) + 1; } else { o.B += k.B; o.Y += k.Y; o.EY += k.EY; }
     const hm = k.m[mk];
-    if (hm.d !== 'EY') { if (MET[mk].tip === 'sayi' && sayisal(hm)) { o.h += hm.h; o.f += hm.f; } if (hm.d === 'B') o.mB++; else o.mY++; }
+    /* Fiili/hedef toplamlarına "Etkisi Yok" aylar DAHİL (satış satıştır — kullanıcı kararı 24.10.2026; Excel raporuyla aynı);
+       EY tutarı ayrıca tutulur. Başarılı/Yetersiz sayımı (müdür değerlendirmesi) EY hariç kalır. */
+    if (MET[mk].tip === 'sayi' && sayisal(hm)) { o.h += hm.h; o.f += hm.f; if (hm.d === 'EY') { o.eyH += hm.h; o.eyF += hm.f; o.eyN++; } }
+    if (hm.d !== 'EY') { if (hm.d === 'B') o.mB++; else o.mY++; }
   }
   o.oran = MET[mk].tip === 'sayi' ? (o.h ? yv(o.f / o.h * 100) : null) : ((o.mB + o.mY) ? yv(o.mB / (o.mB + o.mY) * 100) : null);
   o.durum = o.ort === null ? null : bant(o.ort);
@@ -730,15 +735,21 @@ function kpiCiz(danlar) {
   k1.querySelector('.kpi-alt').innerHTML = alt1; olc(k1, (v1 ?? 0) / 100);
 
   const k2 = kart('k2', 'var(--g1)', 'performans', mt.kisa + (mt.tip === 'sayi' ? ' · fiili / hedef' : ' · değerlendirme'));
-  let h = 0, f = 0, b2 = 0, t2 = 0, ey2 = 0;
-  ks.forEach(k => { const x = k.m[mk]; if (x.d === 'EY') { ey2++; return; } if (mt.tip === 'sayi' && sayisal(x)) { h += x.h; f += x.f; } t2++; if (x.d === 'B') b2++; });
+  let h = 0, f = 0, b2 = 0, t2 = 0, ey2 = 0, eyF = 0, eyH = 0;
+  ks.forEach(k => {
+    const x = k.m[mk];
+    if (mt.tip === 'sayi' && sayisal(x)) { h += x.h; f += x.f; if (x.d === 'EY') { eyF += x.f; eyH += x.h; } }   /* EY satışları toplama dahil */
+    if (x.d === 'EY') { ey2++; return; }
+    t2++; if (x.d === 'B') b2++;
+  });
   if (mt.tip === 'sayi') {
     gecis(k2.querySelector('.v'), f, x => sayi(x)); k2.querySelector('small').textContent = '/ ' + sayi(h) + (mt.birim ? ' ' + mt.birim : '');
-    /* Toplamın kapsamı açıkça yazılır: karnelerin elle toplamıyla karşılaştıran müdür, EY ayını / taslağı hariç tuttuğumuzu görsün */
+    /* Toplamın kapsamı açıkça yazılır; "Etkisi Yok" aylar ayrı satırda gösterilir (toplama dahildir) */
     const tas2 = KARNE.filter(k => k.taslak && aylar().includes(k.ay) && ids.includes(k.dan)).length;
-    const haric = [ey2 ? `${ey2} “Etkisi Yok” ay` : '', tas2 ? `${tas2} taslak` : ''].filter(Boolean).join(' ve ');
-    const o = h ? f / h * 100 : 0; k2.querySelector('.kpi-alt').innerHTML = `<b style="color:var(--metin-1);font-weight:600">${yuzde(o)}</b> gerçekleşme` + (haric ? ` · ${esc(haric)} hariç` : ' · çentik %100');
-    k2.title = 'Toplam: yalnız kesinleşen karneler; “Etkisi Yok” işaretlenen aylar ve taslak karneler toplama girmez.'; olc(k2, Math.min(1, o / 100));
+    const o = h ? f / h * 100 : 0;
+    k2.querySelector('.kpi-alt').innerHTML = `<b style="color:var(--metin-1);font-weight:600">${yuzde(o)}</b> gerçekleşme` + (tas2 ? ` · ${tas2} taslak hariç` : ' · çentik %100')
+      + (ey2 ? `<span class="kpi-ey">EY · ${sayi(eyF)} / ${sayi(eyH)}${mt.birim ? ' ' + mt.birim : ''} — ${ey2} “Etkisi Yok” ay (toplama dahil)</span>` : '');
+    k2.title = 'Toplam: kesinleşen karneler, “Etkisi Yok” işaretlenen aylar dahil; taslak karneler toplama girmez.'; olc(k2, Math.min(1, o / 100));
   } else { gecis(k2.querySelector('.v'), b2, x => sayi(x)); k2.querySelector('small').textContent = '/ ' + t2 + ' başarılı'; k2.querySelector('.kpi-alt').textContent = 'Sayısal hedef yok · müdür değerlendirmesi'; olc(k2, t2 ? b2 / t2 : 0); }
 
   const oz = danlar.map(d => danOzet(d)).filter(o => o.karne);
@@ -773,15 +784,18 @@ function isiCiz(danlar) {
   const gs = $('isiGosterim'); gs.hidden = !sayiMet;
   gs.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.g === (adetMod ? 'adet' : 'yuzde'))));
   $('isiBaslik').textContent = S.metrik ? `Danışman × ay · ${MET[S.metrik].kisa}` : 'Danışman × ay başarı haritası';
-  $('isiAlt').textContent = S.metrik ? (sayiMet ? (adetMod ? 'Hücre: gerçekleşen / hedef (adet — karnedeki değerler) · renk: müdürün değerlendirmesi · son sütun: dönem toplamı' : 'Hücre: gerçekleşme % (gerçekleşen ÷ hedef × 100) · renk: müdürün değerlendirmesi') : 'Hücre: müdür değerlendirmesi (sayısal hedef yok)') : 'Hücre: aylık karne başarı oranı (%) · son sütun: dönem ortalaması';
+  $('isiAlt').textContent = S.metrik ? (sayiMet ? (adetMod ? 'Hücre: gerçekleşen / hedef (adet — karnedeki değerler) · renk: müdürün değerlendirmesi · EY: “Etkisi Yok” ayların toplamı · Toplam: tüm aylar (EY dahil)' : 'Hücre: gerçekleşme % (gerçekleşen ÷ hedef × 100) · renk: müdürün değerlendirmesi') : 'Hücre: müdür değerlendirmesi (sayısal hedef yok)') : 'Hücre: aylık karne başarı oranı (%) · son sütun: dönem ortalaması';
+  el.classList.toggle('ey-sutun', adetMod);
   const adet = v => (v === null || v === undefined) ? '—' : (Number.isInteger(+v) ? String(+v) : sayi(+v, 1));
   const fh = x => adet(x.f) + '/' + adet(x.h);
-  /* Toplam: kesinleşen karneler, "Etkisi Yok" işaretli aylar hariç (üst kart ve son sütunla aynı kural) */
-  const topla = ks => { let f = 0, h = 0, n = 0; ks.forEach(k => { const x = k.m[S.metrik]; if (x.d !== 'EY' && sayisal(x)) { f += x.f; h += x.h; n++; } }); return n ? { f, h } : null; };
+  /* Toplam: kesinleşen karneler, "Etkisi Yok" aylar DAHİL (üst kartla aynı kural); yalnizEY → yalnız EY ayların toplamı (ayrı sütun) */
+  const topla = (ks, yalnizEY) => { let f = 0, h = 0, n = 0; ks.forEach(k => { const x = k.m[S.metrik]; if (sayisal(x) && (!yalnizEY || x.d === 'EY')) { f += x.f; h += x.h; n++; } }); return n ? { f, h } : null; };
   const bas = (t, cls = '') => { const d = document.createElement('div'); d.className = 'isi-bas ' + cls; d.textContent = t; el.appendChild(d); return d; };
   bas('Danışman').style.textAlign = 'left';
   const sutunBas = ayl.map(a => bas(AY_KISA[a]));
+  if (adetMod) bas('EY', 'isi-ort-bas').title = '“Etkisi Yok” işaretlenen ayların gerçekleşen / hedef toplamı (Toplam’a dahildir)';
   bas(adetMod ? 'Toplam' : 'Ort.', 'isi-ort-bas');
+  const eyHucre = (t, kalin) => { const c = document.createElement('div'); c.className = 'isi-hucre son isi-ey'; c.textContent = t ? adet(t.f) + '/' + adet(t.h) : '—'; c.title = '“Etkisi Yok” aylar · Toplam’a dahil'; if (kalin) c.style.fontWeight = '700'; el.appendChild(c); };
   let i = 0;
   for (const d of danlar) {
     const ad = document.createElement('div'); ad.className = 'isi-ad';
@@ -817,7 +831,7 @@ function isiCiz(danlar) {
           satir.push({ etiket: 'Aylık başarı', deger: yuzde(h.v), buyuk: true }, { etiket: 'Başarılı', deger: h.k.B, renk: 'var(--ok-500)' }, { etiket: 'Yetersiz', deger: h.k.Y, renk: 'var(--ht-500)' }, { etiket: 'Etkisi Yok', deger: h.k.EY, renk: 'var(--ey-400)' });
           if (as && MET.arac_satis) satir.push({ etiket: 'Araç satış (fiili / hedef)', deger: (as.f ?? '—') + ' / ' + (as.h ?? '—') + (as.manuel ? ' ✎' : '') });
         }
-        else if (h.tur === 'ey') { satir.push({ etiket: 'Durum', deger: 'Etkisi Yok', buyuk: true }); if (h.x && h.x.f != null) satir.push({ etiket: 'Karnedeki fiili / hedef', deger: h.x.f + ' / ' + (h.x.h ?? '—') + (h.x.manuel ? ' ✎' : '') }, { etiket: 'Toplamlara', deger: 'katılmaz (Etkisi Yok)' }); }
+        else if (h.tur === 'ey') { satir.push({ etiket: 'Durum', deger: 'Etkisi Yok', buyuk: true }); if (h.x && h.x.f != null) satir.push({ etiket: 'Karnedeki fiili / hedef', deger: h.x.f + ' / ' + (h.x.h ?? '—') + (h.x.manuel ? ' ✎' : '') }, { etiket: 'Satış toplamına', deger: 'dahil (EY sütununda ayrıca)' }, { etiket: 'Başarı değerlendirmesine', deger: 'katılmaz' }); }
         else { satir.push({ etiket: 'Durum', deger: BANT_AD[h.durum], buyuk: true }); if (h.oran !== null) satir.push({ etiket: 'Fiili / hedef', deger: h.x.f + ' / ' + h.x.h + (h.x.manuel ? ' ✎' : '') }, { etiket: 'Gerçekleşme', deger: yuzde(h.oran) }); }
         ipucuGoster(x, y, { baslik: `${d.ad} · ${AYLAR[a]} ${YIL}`, satirlar: satir });
       };
@@ -828,17 +842,20 @@ function isiCiz(danlar) {
       c.setAttribute('aria-label', `${d.ad}, ${AYLAR[a]}: ${aciklama || c.textContent || BANT_AD[h.durum] || ''}`);
       el.appendChild(c);
     });
-    const o = danOzet(d), c = document.createElement('div'); c.className = 'isi-hucre son isi-ort';
-    if (S.metrik) { c.textContent = adetMod ? ((o.h || o.f) ? adet(o.f) + '/' + adet(o.h) : '—') : (o.oran ?? '—'); if (adetMod) c.title = 'Dönem toplamı (kesinleşen karneler, Etkisi Yok ayları hariç)' + (o.oran !== null && o.oran !== undefined ? ' · gerçekleşme %' + o.oran : ''); } else { c.textContent = o.ort === null ? '—' : yv(o.ort); c.style.setProperty('--o', (o.ort ?? 0) / 100); c.style.setProperty('--isi-cubuk', 'var(--lac-500)'); }
+    const o = danOzet(d);
+    if (adetMod) eyHucre(o.eyN ? { f: o.eyF, h: o.eyH } : null);
+    const c = document.createElement('div'); c.className = 'isi-hucre son isi-ort';
+    if (S.metrik) { c.textContent = adetMod ? ((o.h || o.f) ? adet(o.f) + '/' + adet(o.h) : '—') : (o.oran ?? '—'); if (adetMod) c.title = 'Dönem toplamı (kesinleşen karneler, Etkisi Yok aylar dahil)' + (o.oran !== null && o.oran !== undefined ? ' · gerçekleşme %' + o.oran : ''); } else { c.textContent = o.ort === null ? '—' : yv(o.ort); c.style.setProperty('--o', (o.ort ?? 0) / 100); c.style.setProperty('--isi-cubuk', 'var(--lac-500)'); }
     el.appendChild(c);
   }
   if (danlar.length > 1) {
     const ay = document.createElement('div'); ay.className = 'isi-ayrac'; el.appendChild(ay);
-    const ad = document.createElement('div'); ad.className = 'isi-ad'; ad.innerHTML = '<b></b><small></small>'; ad.querySelector('b').textContent = MARKA_AD + (adetMod ? ' toplamı' : ' ortalaması'); ad.querySelector('small').textContent = adetMod ? 'kesinleşen karneler · EY hariç' : 'kesinleşen karneler'; el.appendChild(ad);
+    const ad = document.createElement('div'); ad.className = 'isi-ad'; ad.innerHTML = '<b></b><small></small>'; ad.querySelector('b').textContent = MARKA_AD + (adetMod ? ' toplamı' : ' ortalaması'); ad.querySelector('small').textContent = adetMod ? 'kesinleşen karneler · EY dahil' : 'kesinleşen karneler'; el.appendChild(ad);
     const tumu = [];
     /* Adet modunda marka/aktif satırları ayın toplam gerçekleşen/hedefini gösterir */
     const toplamSatiri = (ids, renk) => {
       ayl.forEach(a => { const t = topla(kesinler(ids, [a])); const c = document.createElement('div'); c.className = 'isi-hucre isi-ort'; c.textContent = t ? adet(t.f) + '/' + adet(t.h) : '—'; c.style.setProperty('--o', t && t.h ? Math.min(1, t.f / t.h / 1.2) : 0); c.style.setProperty('--isi-cubuk', renk); el.appendChild(c); });
+      eyHucre(topla(kesinler(ids), true), true);
       const t = topla(kesinler(ids)); const c = document.createElement('div'); c.className = 'isi-hucre son isi-ort'; c.textContent = t ? adet(t.f) + '/' + adet(t.h) : '—'; c.style.fontWeight = '700'; el.appendChild(c);
     };
     if (adetMod) toplamSatiri(danlar.map(d => d.id), 'var(--lac-500)');
@@ -891,7 +908,8 @@ function hfCiz(danlar) {
   $('hfBaslik').textContent = mt.tip === 'sayi' ? `${mt.ad} — Hedef / Gerçekleşen` : `${mt.ad} — değerlendirme dağılımı`;
   $('hfAlt').textContent = (S.dan ? DANI[S.dan].ad : MARKA_AD + ' ortalaması') + (mt.tip === 'sayi' ? ' · karne başına aylık ortalama' : ' · aylık karne sayısı');
   const satir = ayl.map(a => {
-    const ks = kesinler(ids, [a]), x = ks.map(k => k.m[mk]).filter(x => x.d !== 'EY'), xs = x.filter(sayisal);
+    /* x: değerlendirme (EY hariç) · xs: fiili/hedef (EY dahil — satış toplamlarıyla aynı kural) */
+    const ks = kesinler(ids, [a]), x = ks.map(k => k.m[mk]).filter(x => x.d !== 'EY'), xs = ks.map(k => k.m[mk]).filter(sayisal);
     return { a, n: ks.length, h: mt.tip === 'sayi' ? ort(xs.map(x => x.h)) : null, f: mt.tip === 'sayi' ? ort(xs.map(x => x.f)) : null,
       oran: mt.tip === 'sayi' ? ort(xs.filter(x => x.h > 0).map(x => x.f / x.h * 100)) : null, B: x.filter(x => x.d === 'B').length, Y: x.filter(x => x.d === 'Y').length, EY: ks.length - x.length };
   });
@@ -1004,14 +1022,15 @@ $('notlar').innerHTML = [
   `Aylık başarı oranı = "Başarılı" işaretlenen metrik sayısı / (${NMET} metrik − "Etkisi Yok") × 100. Bu orana eşik/renk bandı uygulanmaz; ısı haritasındaki ton yalnız değeri gösterir.`,
   'Metrik başarı % = Gerçekleşen / Hedef × 100 (resmî barem: hedefin %100 ve üzeri Başarılı). Renk: ≥%100 yeşil · %80–99 sarı (hedefe yakın) · <%80 kırmızı — Genel Bakış ile aynı.',
   'Hesaplara yalnız kesinleşen karneler katılır; taslaklar ısı haritasında "Taslak" olarak görünür. Elle girilen araç satış fiilileri dikkate alınır (✎).',
-  'Isı haritasında sayısal metrik seçiliyken hücre, karnedeki gibi gerçekleşen/hedef ADEDİNİ gösterir ("Adet"); "%" ile gerçekleşme yüzdesine geçilir. "Etkisi Yok" işaretli aylar rakamıyla görünür ama toplamlara katılmaz.',
+  'Isı haritasında sayısal metrik seçiliyken hücre, karnedeki gibi gerçekleşen/hedef ADEDİNİ gösterir ("Adet"); "%" ile gerçekleşme yüzdesine geçilir.',
+  '“Etkisi Yok” işaretli aylar: satış (fiili/hedef) toplamlarına DAHİLDİR ve ayrıca “EY” sütununda / fiili-hedef kartında gösterilir; Başarılı/Yetersiz sayımına katılmaz.',
   'Renk hiçbir yerde tek başına anlam taşımaz; değer ve etiket her zaman yazılıdır.'
 ].map(t => `<li>${esc(t)}</li>`).join('');
 const kucuk = window.matchMedia('(max-width: 760px)').matches, gb = kucuk ? 104 : 150;
 if (sonAy === undefined) $('gostergeKume').hidden = true;
 else {
   const sk = KARNE.filter(k => k.ay === sonAy), skK = sk.filter(k => !k.taslak);
-  let sh = 0, sf = 0; skK.forEach(k => { const x = k.m.arac_satis; if (x && x.d !== 'EY' && x.h > 0 && x.f != null) { sh += x.h; sf += x.f; } });
+  let sh = 0, sf = 0; skK.forEach(k => { const x = k.m.arac_satis; if (x && x.h > 0 && x.f != null) { sh += x.h; sf += x.f; } });   /* EY dahil */
   gosterge($('g1'), { deger: ort(skK.map(k => k.bas)) ?? 0, max: 100, onek: '%', etiket: 'Başarı', boyut: gb });
   gosterge($('g2'), { deger: sh ? sf / sh * 100 : 0, max: 120, onek: '%', etiket: 'Gerçekleşme', boyut: gb, hedef: 100 });
   gosterge($('g3'), { deger: skK.length, max: Math.max(1, sk.length), etiket: '/ ' + sk.length + ' karne', boyut: gb });
@@ -1110,7 +1129,8 @@ async function raporUret(yalnizKesin) {
   const ortBas = ks => ks.length ? yv(ort(ks.map(k => k.bas))) : null;
   const metOran = (ks, mt) => {
     let h = 0, f = 0, b = 0, y = 0, n = 0;
-    ks.forEach(k => { const x = k.m[mt.key]; if (!x || x.d === 'EY') return; n++; if (mt.tip === 'sayi') { if (x.h > 0 && x.f != null) { h += x.h; f += x.f; } } else if (x.d === 'B') b++; else if (x.d === 'Y') y++; });
+    /* Sayısal metrikte fiili/hedef toplamına "Etkisi Yok" aylar dahil (panodaki kural); değerlendirme sayımı EY hariç */
+    ks.forEach(k => { const x = k.m[mt.key]; if (!x) return; if (mt.tip === 'sayi') { if (x.h > 0 && x.f != null) { h += x.h; f += x.f; } if (x.d !== 'EY') n++; } else if (x.d !== 'EY') { n++; if (x.d === 'B') b++; else if (x.d === 'Y') y++; } });
     if (mt.tip === 'sayi') return h > 0 ? { v: yv(f / h * 100) } : (n ? { bos: true } : { ey: true });
     return (b + y) ? { v: yv(b / (b + y) * 100) } : { ey: true };
   };
@@ -1216,7 +1236,7 @@ async function raporUret(yalnizKesin) {
   };
   ozet2('MARKA ORTALAMASI (tüm danışmanlar)', TUM, C.MOR);
   ozet2('AKTİF ÇALIŞANLAR ORTALAMASI' + (eskiVar ? ' (eski çalışanlar hariç)' : ''), AKT.size ? AKT : TUM, C.PIR);
-  dipNot(w2, r2 + 1, nc2, 'Aylık hücreler: müdür değerlendirmesi — Yeşil Başarılı (barem: hedefin %100 ve üzeri) · Kırmızı Yetersiz · Gri Etkisi Yok. Çeyrek/ortalama: sayısal metriklerde ≥ %100 yeşil · %80–99 sarı · < %80 kırmızı; değerlendirme metriklerinde "Başarılı" karne oranı (renksiz). İtalik = taslak.');
+  dipNot(w2, r2 + 1, nc2, 'Aylık hücreler: müdür değerlendirmesi — Yeşil Başarılı (barem: hedefin %100 ve üzeri) · Kırmızı Yetersiz · Gri Etkisi Yok. Çeyrek/ortalama: sayısal metriklerde ≥ %100 yeşil · %80–99 sarı · < %80 kırmızı; değerlendirme metriklerinde "Başarılı" karne oranı (renksiz). Sayısal çeyrek/ortalama oranlarına “Etkisi Yok” ayların fiili/hedefi dahildir. İtalik = taslak.');
   w2.getColumn(1).width = 3; w2.getColumn(2).width = 38; for (let j = 3; j <= nc2; j++) w2.getColumn(j).width = j > 2 + ayl.length ? 13 : 11;
 
   /* ---------- 3) Satış Hedef - Fiili ---------- */
@@ -1250,7 +1270,7 @@ async function raporUret(yalnizKesin) {
   const ozetHf = set => ayl.map(a => hfTop(kSec(set, [a]))).concat(CEY.map(q => hfTop(kSec(set, q.aylar))));
   hfBlok('MARKA GENELİ (tüm danışmanlar · toplam)', ozetHf(TUM), C.MOR);
   hfBlok('AKTİF ÇALIŞANLAR' + (eskiVar ? ' (eski çalışanlar hariç)' : '') + ' · toplam', ozetHf(AKT.size ? AKT : TUM), C.PIR);
-  dipNot(w3, r3 + 1, nc3, 'Renk: Yeşil ≥ %100 (hedefi tuttu) · Sarı %80–99 (hedefe yakın) · Kırmızı < %80 — Satış Panosu Genel Bakış ile aynı. Başarı % = Fiili / Hedef × 100 (çeyrek ve toplam satırlarında toplamlar üzerinden). İtalik = taslak karne.');
+  dipNot(w3, r3 + 1, nc3, 'Renk: Yeşil ≥ %100 (hedefi tuttu) · Sarı %80–99 (hedefe yakın) · Kırmızı < %80 — Satış Panosu Genel Bakış ile aynı. Başarı % = Fiili / Hedef × 100 (çeyrek ve toplam satırlarında toplamlar üzerinden; “Etkisi Yok” aylar toplamlara dahil). İtalik = taslak karne.');
   w3.getColumn(1).width = 30; w3.getColumn(2).width = 20; for (let j = 3; j <= nc3; j++) w3.getColumn(j).width = j > 2 + ayl.length ? 13 : 10;
 
   /* ---------- 4) Grafikler — her grafik açıklamalı ve değer etiketli; ızgarasız açık zemin ---------- */
