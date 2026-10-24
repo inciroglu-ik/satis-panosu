@@ -67,6 +67,8 @@
   .izgara { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 20px; align-items: start; }
   .s8 { grid-column: span 8; } .s4 { grid-column: span 4; } .s7 { grid-column: span 7; } .s5 { grid-column: span 5; } .s12 { grid-column: span 12; }
   .kart-ust .bolumlu button { height: 28px; font-size: 12px; }
+  .isi-cift { display: grid; justify-items: center; line-height: 1.05; }
+  .isi-cift small { font-size: 9px; font-weight: 700; letter-spacing: .08em; opacity: .85; }
   .kart-not { font-size: var(--fs-xs); color: var(--metin-3); margin-top: 14px; display: flex; gap: 6px; align-items: flex-start; }
   .kart-not svg { width: 14px; height: 14px; flex: none; margin-top: 1px; color: var(--lac-400); }
 
@@ -242,6 +244,10 @@
         <div>
           <h2 class="kart-baslik" id="isiBaslik">Danışman × ay başarı haritası</h2>
           <div class="kart-alt" id="isiAlt"></div>
+        </div>
+        <div class="bolumlu" role="group" aria-label="Hücre gösterimi" id="isiGosterim" hidden>
+          <button type="button" data-g="adet" aria-pressed="true" title="Karnedeki gibi: gerçekleşen / hedef (adet)">Adet</button>
+          <button type="button" data-g="yuzde" aria-pressed="false" title="Gerçekleşme yüzdesi: gerçekleşen ÷ hedef × 100">%</button>
         </div>
       </div>
       <div class="isi-harita"><div class="isi-izgara" id="isi"></div></div>
@@ -573,11 +579,13 @@ const DONEMLER = [{ v: 'tum', ad: YIL + ' · ' + (AYV.length ? AYLAR[AYV[0]] + (
 });
 AYV.forEach((a, i) => DONEMLER.push({ v: 'm' + a, ad: AYLAR[a] + ' ' + YIL, aylar: [a], onceki: i ? 'm' + AYV[i - 1] : null, ay: true }));
 const DNM = Object.fromEntries(DONEMLER.map(x => [x.v, x]));
-const S = { donem: 'tum', dan: '', metrik: '', durum: 'tum', sira: { k: 'ort', y: -1 }, gorunum: 'grafik' };
+/* isiGos: sayısal metrikte ısı haritası hücresi — 'adet' (karnedeki gibi gerçekleşen/hedef) ya da 'yuzde' (gerçekleşme %) */
+const S = { donem: 'tum', dan: '', metrik: '', durum: 'tum', sira: { k: 'ort', y: -1 }, gorunum: 'grafik', isiGos: 'adet' };
 if (ESKI.S && ESKI.marka === V.marka && ESKI.yil === YIL) {
   const e = ESKI.S;
   if (DNM[e.donem]) S.donem = e.donem; if (e.dan && DANI[e.dan]) S.dan = e.dan; if (e.metrik && MET[e.metrik]) S.metrik = e.metrik;
   if (e.durum) S.durum = e.durum; if (e.sira && e.sira.k) S.sira = e.sira; if (e.gorunum === 'tablo') S.gorunum = 'tablo';
+  if (e.isiGos === 'yuzde') S.isiGos = 'yuzde';
   if (S.sira.k === 'durum') S.sira = { k: 'ort', y: -1 };
 }
 const ilk = { donem: 'tum', dan: '', metrik: '', durum: 'tum' };
@@ -722,11 +730,15 @@ function kpiCiz(danlar) {
   k1.querySelector('.kpi-alt').innerHTML = alt1; olc(k1, (v1 ?? 0) / 100);
 
   const k2 = kart('k2', 'var(--g1)', 'performans', mt.kisa + (mt.tip === 'sayi' ? ' · fiili / hedef' : ' · değerlendirme'));
-  let h = 0, f = 0, b2 = 0, t2 = 0;
-  ks.forEach(k => { const x = k.m[mk]; if (x.d === 'EY') return; if (mt.tip === 'sayi' && sayisal(x)) { h += x.h; f += x.f; } t2++; if (x.d === 'B') b2++; });
+  let h = 0, f = 0, b2 = 0, t2 = 0, ey2 = 0;
+  ks.forEach(k => { const x = k.m[mk]; if (x.d === 'EY') { ey2++; return; } if (mt.tip === 'sayi' && sayisal(x)) { h += x.h; f += x.f; } t2++; if (x.d === 'B') b2++; });
   if (mt.tip === 'sayi') {
     gecis(k2.querySelector('.v'), f, x => sayi(x)); k2.querySelector('small').textContent = '/ ' + sayi(h) + (mt.birim ? ' ' + mt.birim : '');
-    const o = h ? f / h * 100 : 0; k2.querySelector('.kpi-alt').innerHTML = `<b style="color:var(--metin-1);font-weight:600">${yuzde(o)}</b> gerçekleşme · çentik %100`; olc(k2, Math.min(1, o / 100));
+    /* Toplamın kapsamı açıkça yazılır: karnelerin elle toplamıyla karşılaştıran müdür, EY ayını / taslağı hariç tuttuğumuzu görsün */
+    const tas2 = KARNE.filter(k => k.taslak && aylar().includes(k.ay) && ids.includes(k.dan)).length;
+    const haric = [ey2 ? `${ey2} “Etkisi Yok” ay` : '', tas2 ? `${tas2} taslak` : ''].filter(Boolean).join(' ve ');
+    const o = h ? f / h * 100 : 0; k2.querySelector('.kpi-alt').innerHTML = `<b style="color:var(--metin-1);font-weight:600">${yuzde(o)}</b> gerçekleşme` + (haric ? ` · ${esc(haric)} hariç` : ' · çentik %100');
+    k2.title = 'Toplam: yalnız kesinleşen karneler; “Etkisi Yok” işaretlenen aylar ve taslak karneler toplama girmez.'; olc(k2, Math.min(1, o / 100));
   } else { gecis(k2.querySelector('.v'), b2, x => sayi(x)); k2.querySelector('small').textContent = '/ ' + t2 + ' başarılı'; k2.querySelector('.kpi-alt').textContent = 'Sayısal hedef yok · müdür değerlendirmesi'; olc(k2, t2 ? b2 / t2 : 0); }
 
   const oz = danlar.map(d => danOzet(d)).filter(o => o.karne);
@@ -755,12 +767,21 @@ function kpiCiz(danlar) {
 
 function isiCiz(danlar) {
   const ayl = aylar(), el = $('isi'); el.style.setProperty('--n', ayl.length); el.textContent = '';
+  /* Sayısal metrikte hücre ya karnedeki gibi ADET (gerçekleşen/hedef) ya da gerçekleşme % gösterir — varsayılan adet,
+     çünkü müdürler hücreyi karneye girdikleri sayıyla karşılaştırıyor (yüzde sayı, adet sanılıyordu). */
+  const sayiMet = !!(S.metrik && MET[S.metrik].tip === 'sayi'), adetMod = sayiMet && S.isiGos !== 'yuzde';
+  const gs = $('isiGosterim'); gs.hidden = !sayiMet;
+  gs.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.g === (adetMod ? 'adet' : 'yuzde'))));
   $('isiBaslik').textContent = S.metrik ? `Danışman × ay · ${MET[S.metrik].kisa}` : 'Danışman × ay başarı haritası';
-  $('isiAlt').textContent = S.metrik ? (MET[S.metrik].tip === 'sayi' ? 'Hücre: Gerçekleşen / Hedef % · renk: müdürün değerlendirmesi' : 'Hücre: müdür değerlendirmesi (sayısal hedef yok)') : 'Hücre: aylık karne başarı oranı (%) · son sütun: dönem ortalaması';
+  $('isiAlt').textContent = S.metrik ? (sayiMet ? (adetMod ? 'Hücre: gerçekleşen / hedef (adet — karnedeki değerler) · renk: müdürün değerlendirmesi · son sütun: dönem toplamı' : 'Hücre: gerçekleşme % (gerçekleşen ÷ hedef × 100) · renk: müdürün değerlendirmesi') : 'Hücre: müdür değerlendirmesi (sayısal hedef yok)') : 'Hücre: aylık karne başarı oranı (%) · son sütun: dönem ortalaması';
+  const adet = v => (v === null || v === undefined) ? '—' : (Number.isInteger(+v) ? String(+v) : sayi(+v, 1));
+  const fh = x => adet(x.f) + '/' + adet(x.h);
+  /* Toplam: kesinleşen karneler, "Etkisi Yok" işaretli aylar hariç (üst kart ve son sütunla aynı kural) */
+  const topla = ks => { let f = 0, h = 0, n = 0; ks.forEach(k => { const x = k.m[S.metrik]; if (x.d !== 'EY' && sayisal(x)) { f += x.f; h += x.h; n++; } }); return n ? { f, h } : null; };
   const bas = (t, cls = '') => { const d = document.createElement('div'); d.className = 'isi-bas ' + cls; d.textContent = t; el.appendChild(d); return d; };
   bas('Danışman').style.textAlign = 'left';
   const sutunBas = ayl.map(a => bas(AY_KISA[a]));
-  bas('Ort.', 'isi-ort-bas');
+  bas(adetMod ? 'Toplam' : 'Ort.', 'isi-ort-bas');
   let i = 0;
   for (const d of danlar) {
     const ad = document.createElement('div'); ad.className = 'isi-ad';
@@ -772,8 +793,19 @@ function isiCiz(danlar) {
       if (h.tur === 'yok') { c.classList.add('isi-yok'); c.textContent = '—'; }
       else if (h.tur === 'taslak') { c.classList.add('isi-taslak'); c.textContent = 'Taslak'; }
       else if (h.tur === 'deger') { const ton = notrTon(h.v); c.style.background = ton.bg; c.style.color = ton.renk; c.textContent = h.v; c.style.setProperty('--o', h.v / 100); }
-      else if (h.tur === 'ey') { c.classList.add('isi-ey'); c.textContent = 'EY'; }
-      else { c.classList.add(BANT_SINIF[h.durum]); if (h.oran !== null) { c.textContent = h.oran; c.style.setProperty('--o', Math.min(1, h.oran / 120)); } else c.innerHTML = ikon(h.durum === 'B' ? 'onay' : 'carpi'); }
+      let aciklama = null;   /* ekran okuyucu metni (EY hücresinde iki satırlı içerik için) */
+      if (h.tur === 'ey') {
+        c.classList.add('isi-ey');
+        /* Adet modunda karneye girilen sayı EY ayında da görünür (hesaba katılmadığı "EY" etiketiyle belirtilir) */
+        if (adetMod && h.x && h.x.f != null) { c.innerHTML = `<span class="isi-cift"><b>${fh(h.x)}</b><small>EY</small></span>`; aciklama = fh(h.x) + ', Etkisi Yok'; }
+        else c.textContent = 'EY';
+      }
+      else if (h.tur === 'metrik') {
+        c.classList.add(BANT_SINIF[h.durum]);
+        if (h.oran !== null) { c.textContent = adetMod ? fh(h.x) : h.oran; c.style.setProperty('--o', Math.min(1, h.oran / 120)); }
+        else if (adetMod && h.x && h.x.f != null) c.textContent = fh(h.x);
+        else c.innerHTML = ikon(h.durum === 'B' ? 'onay' : 'carpi');
+      }
       if (S.durum !== 'tum' && h.durum !== S.durum) c.classList.add('sonuk');
       const goster = (x, y) => {
         sutunBas[j].classList.add('vurgu'); ad.classList.add('vurgu');
@@ -785,7 +817,7 @@ function isiCiz(danlar) {
           satir.push({ etiket: 'Aylık başarı', deger: yuzde(h.v), buyuk: true }, { etiket: 'Başarılı', deger: h.k.B, renk: 'var(--ok-500)' }, { etiket: 'Yetersiz', deger: h.k.Y, renk: 'var(--ht-500)' }, { etiket: 'Etkisi Yok', deger: h.k.EY, renk: 'var(--ey-400)' });
           if (as && MET.arac_satis) satir.push({ etiket: 'Araç satış (fiili / hedef)', deger: (as.f ?? '—') + ' / ' + (as.h ?? '—') + (as.manuel ? ' ✎' : '') });
         }
-        else if (h.tur === 'ey') satir.push({ etiket: 'Durum', deger: 'Etkisi Yok', buyuk: true });
+        else if (h.tur === 'ey') { satir.push({ etiket: 'Durum', deger: 'Etkisi Yok', buyuk: true }); if (h.x && h.x.f != null) satir.push({ etiket: 'Karnedeki fiili / hedef', deger: h.x.f + ' / ' + (h.x.h ?? '—') + (h.x.manuel ? ' ✎' : '') }, { etiket: 'Toplamlara', deger: 'katılmaz (Etkisi Yok)' }); }
         else { satir.push({ etiket: 'Durum', deger: BANT_AD[h.durum], buyuk: true }); if (h.oran !== null) satir.push({ etiket: 'Fiili / hedef', deger: h.x.f + ' / ' + h.x.h + (h.x.manuel ? ' ✎' : '') }, { etiket: 'Gerçekleşme', deger: yuzde(h.oran) }); }
         ipucuGoster(x, y, { baslik: `${d.ad} · ${AYLAR[a]} ${YIL}`, satirlar: satir });
       };
@@ -793,36 +825,43 @@ function isiCiz(danlar) {
       c.addEventListener('focus', () => { const r = c.getBoundingClientRect(); goster(r.right, r.bottom); });
       const gizle = () => { ipucuGizle(); sutunBas[j].classList.remove('vurgu'); ad.classList.remove('vurgu'); };
       c.addEventListener('pointerleave', gizle); c.addEventListener('blur', gizle);
-      c.setAttribute('aria-label', `${d.ad}, ${AYLAR[a]}: ${c.textContent || BANT_AD[h.durum] || ''}`);
+      c.setAttribute('aria-label', `${d.ad}, ${AYLAR[a]}: ${aciklama || c.textContent || BANT_AD[h.durum] || ''}`);
       el.appendChild(c);
     });
     const o = danOzet(d), c = document.createElement('div'); c.className = 'isi-hucre son isi-ort';
-    if (S.metrik) { c.textContent = o.oran ?? '—'; } else { c.textContent = o.ort === null ? '—' : yv(o.ort); c.style.setProperty('--o', (o.ort ?? 0) / 100); c.style.setProperty('--isi-cubuk', 'var(--lac-500)'); }
+    if (S.metrik) { c.textContent = adetMod ? ((o.h || o.f) ? adet(o.f) + '/' + adet(o.h) : '—') : (o.oran ?? '—'); if (adetMod) c.title = 'Dönem toplamı (kesinleşen karneler, Etkisi Yok ayları hariç)' + (o.oran !== null && o.oran !== undefined ? ' · gerçekleşme %' + o.oran : ''); } else { c.textContent = o.ort === null ? '—' : yv(o.ort); c.style.setProperty('--o', (o.ort ?? 0) / 100); c.style.setProperty('--isi-cubuk', 'var(--lac-500)'); }
     el.appendChild(c);
   }
   if (danlar.length > 1) {
     const ay = document.createElement('div'); ay.className = 'isi-ayrac'; el.appendChild(ay);
-    const ad = document.createElement('div'); ad.className = 'isi-ad'; ad.innerHTML = '<b></b><small>kesinleşen karneler</small>'; ad.querySelector('b').textContent = MARKA_AD + ' ortalaması'; el.appendChild(ad);
+    const ad = document.createElement('div'); ad.className = 'isi-ad'; ad.innerHTML = '<b></b><small></small>'; ad.querySelector('b').textContent = MARKA_AD + (adetMod ? ' toplamı' : ' ortalaması'); ad.querySelector('small').textContent = adetMod ? 'kesinleşen karneler · EY hariç' : 'kesinleşen karneler'; el.appendChild(ad);
     const tumu = [];
-    ayl.forEach(a => {
+    /* Adet modunda marka/aktif satırları ayın toplam gerçekleşen/hedefini gösterir */
+    const toplamSatiri = (ids, renk) => {
+      ayl.forEach(a => { const t = topla(kesinler(ids, [a])); const c = document.createElement('div'); c.className = 'isi-hucre isi-ort'; c.textContent = t ? adet(t.f) + '/' + adet(t.h) : '—'; c.style.setProperty('--o', t && t.h ? Math.min(1, t.f / t.h / 1.2) : 0); c.style.setProperty('--isi-cubuk', renk); el.appendChild(c); });
+      const t = topla(kesinler(ids)); const c = document.createElement('div'); c.className = 'isi-hucre son isi-ort'; c.textContent = t ? adet(t.f) + '/' + adet(t.h) : '—'; c.style.fontWeight = '700'; el.appendChild(c);
+    };
+    if (adetMod) toplamSatiri(danlar.map(d => d.id), 'var(--lac-500)');
+    else ayl.forEach(a => {
       const ks = kesinler(danlar.map(d => d.id), [a]); const c = document.createElement('div'); c.className = 'isi-hucre isi-ort';
       let v = null;
       if (!S.metrik) v = ort(ks.map(k => k.bas)); else { const x = ks.map(k => k.m[S.metrik]).filter(x => x.d !== 'EY'); v = x.length ? x.filter(x => x.d === 'B').length / x.length * 100 : null; }
       c.textContent = v === null ? '—' : yv(v); c.style.setProperty('--o', (v ?? 0) / 100); c.style.setProperty('--isi-cubuk', 'var(--lac-500)'); if (v !== null) tumu.push(v); el.appendChild(c);
     });
-    const c = document.createElement('div'); c.className = 'isi-hucre son isi-ort'; const v = ort(tumu); c.textContent = v === null ? '—' : yv(v); c.style.fontWeight = '700'; el.appendChild(c);
+    if (!adetMod) { const c = document.createElement('div'); c.className = 'isi-hucre son isi-ort'; const v = ort(tumu); c.textContent = v === null ? '—' : yv(v); c.style.fontWeight = '700'; el.appendChild(c); }
     /* Aktif çalışanlar ortalaması (eski çalışanlar hariç) — kısa süre çalışıp ayrılan ortalamayı yanıltmasın */
     const aktif = danlar.filter(d => !d.eski);
     if (aktif.length && aktif.length < danlar.length) {
-      const adA = document.createElement('div'); adA.className = 'isi-ad'; adA.innerHTML = '<b></b><small>eski çalışanlar hariç</small>'; adA.querySelector('b').textContent = 'Aktif çalışanlar ortalaması'; el.appendChild(adA);
+      const adA = document.createElement('div'); adA.className = 'isi-ad'; adA.innerHTML = '<b></b><small>eski çalışanlar hariç</small>'; adA.querySelector('b').textContent = 'Aktif çalışanlar ' + (adetMod ? 'toplamı' : 'ortalaması'); el.appendChild(adA);
       const tumA = [];
-      ayl.forEach(a => {
+      if (adetMod) toplamSatiri(aktif.map(d => d.id), 'var(--pir-500)');
+      else ayl.forEach(a => {
         const ks = kesinler(aktif.map(d => d.id), [a]); const cA = document.createElement('div'); cA.className = 'isi-hucre isi-ort';
         let vA = null;
         if (!S.metrik) vA = ort(ks.map(k => k.bas)); else { const x = ks.map(k => k.m[S.metrik]).filter(x => x.d !== 'EY'); vA = x.length ? x.filter(x => x.d === 'B').length / x.length * 100 : null; }
         cA.textContent = vA === null ? '—' : yv(vA); cA.style.setProperty('--o', (vA ?? 0) / 100); cA.style.setProperty('--isi-cubuk', 'var(--pir-500)'); if (vA !== null) tumA.push(vA); el.appendChild(cA);
       });
-      const cS = document.createElement('div'); cS.className = 'isi-hucre son isi-ort'; const vS = ort(tumA); cS.textContent = vS === null ? '—' : yv(vS); cS.style.fontWeight = '700'; el.appendChild(cS);
+      if (!adetMod) { const cS = document.createElement('div'); cS.className = 'isi-hucre son isi-ort'; const vS = ort(tumA); cS.textContent = vS === null ? '—' : yv(vS); cS.style.fontWeight = '700'; el.appendChild(cS); }
     }
   }
   if (!danlar.length) { const bos = document.createElement('div'); bos.style.gridColumn = '1 / -1'; bos.className = 'bos-durum'; bos.innerHTML = `<div class="bos-ikon">${ikon('filtre')}</div><h3>Bu filtrelerle karne bulunamadı</h3><p>Dönemi genişletin ya da filtreleri sıfırlayın.</p>`; el.appendChild(bos); }
@@ -951,6 +990,7 @@ function gorunumUygula() {
   requestAnimationFrame(boyutla);
 }
 $('hfGorunum').querySelectorAll('button').forEach(b => b.onclick = () => { S.gorunum = b.dataset.g; gorunumUygula(); durumSakla(); });
+$('isiGosterim').querySelectorAll('button').forEach(b => b.onclick = () => { S.isiGos = b.dataset.g; isiCiz(kapsamDan()); durumSakla(); requestAnimationFrame(boyutla); });
 
 /* Üst bilgi ve göstergeler — son kesinleşen ay (filtrelerden bağımsız) */
 const sonAy = [...AYV].reverse().find(a => KARNE.some(k => k.ay === a && !k.taslak));
@@ -964,6 +1004,7 @@ $('notlar').innerHTML = [
   `Aylık başarı oranı = "Başarılı" işaretlenen metrik sayısı / (${NMET} metrik − "Etkisi Yok") × 100. Bu orana eşik/renk bandı uygulanmaz; ısı haritasındaki ton yalnız değeri gösterir.`,
   'Metrik başarı % = Gerçekleşen / Hedef × 100 (resmî barem: hedefin %100 ve üzeri Başarılı). Renk: ≥%100 yeşil · %80–99 sarı (hedefe yakın) · <%80 kırmızı — Genel Bakış ile aynı.',
   'Hesaplara yalnız kesinleşen karneler katılır; taslaklar ısı haritasında "Taslak" olarak görünür. Elle girilen araç satış fiilileri dikkate alınır (✎).',
+  'Isı haritasında sayısal metrik seçiliyken hücre, karnedeki gibi gerçekleşen/hedef ADEDİNİ gösterir ("Adet"); "%" ile gerçekleşme yüzdesine geçilir. "Etkisi Yok" işaretli aylar rakamıyla görünür ama toplamlara katılmaz.',
   'Renk hiçbir yerde tek başına anlam taşımaz; değer ve etiket her zaman yazılıdır.'
 ].map(t => `<li>${esc(t)}</li>`).join('');
 const kucuk = window.matchMedia('(max-width: 760px)').matches, gb = kucuk ? 104 : 150;
