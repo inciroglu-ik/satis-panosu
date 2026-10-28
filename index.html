@@ -1314,6 +1314,9 @@ function karneCopilotKapaliMi(marka,yil,ay){
   /* Peugeot: yalnızca Temmuz 2026 — İK/müdür Araç Satış Adedi hedef+gerçekleşenini
      Copilot'tan değil elle girer; girilen değer "✎ elle" işaretiyle görünür. */
   if(m==='peugeot' && (+yil)===2026 && (+ay)===7)return true;
+  /* BMW: yalnızca Eylül 2026 — karnede Araç Satış Adedi hedef+gerçekleşeni elle girilir
+     (kullanıcı kararı 28.10.2026; Borusan-Next ve Bmw Motorrad bu kurala dahil değil). */
+  if(m==='bmw' && (+yil)===2026 && (+ay)===9)return true;
   return m==='2.el' && (+yil)===2026 && (+ay)>=1 && (+ay)<=6;
 }
 /* Citroen NOT: hedefleri Copilot'tan gelmeye devam eder; yalnızca FİİLİ elle
@@ -1679,7 +1682,7 @@ function karneTableHtml(rows,kilitli,isNew,yil,ay,marka,dan){
     if(m.key==='kasko'||m.key==='sigorta')hints.push('Önerilen hedef: Araç Satış Adedi (gerçekleşen) × %'+(marka==='2.El'?70:80));
     else if(m.ipucu)hints.push(m.ipucu);
     if(metrikKilitli)hints=['Bu dönem için kapalı — Haziran 2026\'dan itibaren açılacaktır'];
-    if(araSatisManuel)hints=['Bu danışman için Copilot verisi yok/0 görünüyor — hedef ve gerçekleşeni elle giriniz'];
+    if(araSatisManuel)hints=[copilotKapali?'Bu dönemde hedef ve gerçekleşen elle girilir':'Bu danışman için Copilot verisi yok/0 görünüyor — hedef ve gerçekleşeni elle giriniz'];
     var labelCell='<td class="metad">'+esc(m.ad)+(hints.length?'<small>'+esc(hints.join(' · '))+'</small>':'')+'</td>';
     var disAttr=(kilitli||metrikKilitli)?' disabled':'';
     var durumVal=metrikKilitli?'Etkisi Yok':r.durum;
