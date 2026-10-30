@@ -1132,15 +1132,17 @@ function viewMarka(rows){
       if(buArr)chartSeries.push({name:'Bütçe',color:'var(--s-butce)',values:ays.map(a=>buArr[a-1]||0)});
       var chart=groupedBar(ays.map(a=>AYLAR[a-1].slice(0,3)),chartSeries,{h:280,w:680});
       var byD=aggBy(mrows,'danisman'),dk=Object.keys(byD).sort((a,b)=>byD[b].fiili-byD[a].fiili);
-      var drows=dk.map(function(k){var o=byD[k].hedef?byD[k].fiili/byD[k].hedef:null,s2=statusOf(o),mx=Math.max(byD[k].fiili,byD[k].hedef,1);
-        return '<tr><td class="name">'+danAd(k)+'</td><td class="tnum">'+fmtInt(byD[k].hedef)+'</td>'
+      var drows=dk.map(function(k){var o=byD[k].hedef?byD[k].fiili/byD[k].hedef:null,s2=statusOf(o),mx=Math.max(byD[k].fiili,byD[k].hedef,1),gd=danGirisDurum(k);
+        return '<tr><td class="name">'+danAd(k)+'</td>'
+          +'<td class="tnum">'+(gd.giris?esc(gd.giris):'—')+'</td><td style="text-align:left">'+danDurumHucre(gd)+'</td>'
+          +'<td class="tnum">'+fmtInt(byD[k].hedef)+'</td>'
           +'<td class="tnum bar-cell"><span class="fillbar" style="width:'+(byD[k].fiili/mx*100)+'%"></span>'+fmtInt(byD[k].fiili)+'</td>'
           +'<td><span class="badge '+s2[0]+'">'+s2[1]+'</span></td></tr>';}).join('');
       body='<div class="marka-body"><div class="grid2" style="margin-top:14px">'
         +'<div><h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Aylık İç Hedef vs Fiili'+(buArr?' vs Bütçe':'')+'</h4>'
           +legend(buArr?[{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'},{name:'Bütçe',color:'var(--s-butce)'}]:[{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'}])+chart+'</div>'
         +'<div><h4 style="font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Danışman Sıralaması</h4>'
-          +'<table><thead><tr><th>Danışman</th><th>Hedef</th><th>Fiili</th><th>Gerç.</th></tr></thead><tbody>'+drows+'</tbody></table></div>'
+          +'<div style="overflow-x:auto"><table><thead><tr><th>Danışman</th><th>İşe Giriş</th><th style="text-align:left">Durum</th><th>Hedef</th><th>Fiili</th><th>Gerç.</th></tr></thead><tbody>'+drows+'</tbody></table></div></div>'
         +'</div></div>';
     }
     out+='<div class="marka-card'+(open?' open':'')+'" data-mk="'+esc(m)+'">'
@@ -1168,6 +1170,17 @@ function danBilgi(d){
   return Object.assign({g:'',e:0,c:'',n:''},(V.danismanBilgi||{})[d]||{},(V.danismanDetay||{})[d]||{});
 }
 var DAN_DETAY_ALANLARI=['g','c','n'];
+/* İşe giriş / durum: Danışman Analizi ve Marka Analizi aynı kaynağı ve aynı gösterimi kullanır. */
+function danGirisDurum(k){
+  var bi=danBilgi(k), eski=(danDurum(k)==='Eski')||ayrildiMi(k)||(bi.e?true:false);
+  return {giris:bi.g||'',girisSort:bi.g?bi.g.split('.').reverse().join(''):'0',eski:eski?1:0,cikis:bi.c||'',neden:bi.n||'',rot:bi.r||0};
+}
+function danDurumHucre(x){
+  if(x.rot)return '<b style="color:var(--s-butce)">Rotasyon</b>';
+  if(!x.eski)return '<b style="color:var(--ok)">Aktif</b>';
+  if(x.cikis||x.neden)return '<b style="color:var(--bad)">Çıkış: '+esc(x.cikis||'—')+'</b>'+(x.neden?'<div style="font-size:10px;color:var(--ink-2)">'+esc(x.neden)+'</div>':'');
+  return '<b style="color:var(--bad)">Eski</b>';
+}
 function viewDanisman(rows){
   var byD=aggBy(rows,'danisman');
   var aySay=aktifAylar().length;
@@ -1176,13 +1189,12 @@ function viewDanisman(rows){
     var ays=aktifAylar(), tut=0;
     ays.forEach(function(a){var rr=rows.filter(r=>r.danisman===k&&r.ay===a);
       var h=rr.reduce((s,r)=>s+r.hedef,0),f=rr.reduce((s,r)=>s+r.fiili,0);if(h>0&&f>=h)tut++;});
-    var bi=danBilgi(k);var eski=(danDurum(k)==='Eski')||ayrildiMi(k)||(bi.e?true:false);var gs=bi.g?bi.g.split('.').reverse().join(''):'0';
-    return {dan:k,marka:[...d.markalar].join(', '),hedef:d.hedef,fiili:d.fiili,oran:oran==null?-1:oran,tut:tut,giris:bi.g||'',girisSort:gs,eski:eski?1:0,cikis:bi.c||'',neden:bi.n||'',rot:bi.r||0};
+    return Object.assign({dan:k,marka:[...d.markalar].join(', '),hedef:d.hedef,fiili:d.fiili,oran:oran==null?-1:oran,tut:tut},danGirisDurum(k));
   });
   list.sort((a,b)=>(a[danSort.k]<b[danSort.k]?-1:a[danSort.k]>b[danSort.k]?1:0)*danSort.dir);
   var arrows=k=>danSort.k===k?(danSort.dir<0?' ↓':' ↑'):'';
   var rowsHtml=list.map(function(x){var st=statusOf(x.oran<0?null:x.oran),mx=Math.max(x.fiili,x.hedef,1);
-    return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(markaAdList(x.marka))+'</td>'+'<td class="tnum">'+(x.giris?esc(x.giris):'—')+'</td>'+'<td style="text-align:left">'+(x.rot?'<b style="color:var(--s-butce)">Rotasyon</b>':(x.eski?((x.cikis||x.neden)?('<b style="color:var(--bad)">Çıkış: '+esc(x.cikis||'—')+'</b>'+(x.neden?'<div style="font-size:10px;color:var(--ink-2)">'+esc(x.neden)+'</div>':'')):'<b style="color:var(--bad)">Eski</b>'):'<b style="color:var(--ok)">Aktif</b>'))+'</td>'
+    return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(markaAdList(x.marka))+'</td>'+'<td class="tnum">'+(x.giris?esc(x.giris):'—')+'</td>'+'<td style="text-align:left">'+danDurumHucre(x)+'</td>'
       +'<td class="tnum">'+fmtInt(x.hedef)+'</td><td class="tnum bar-cell"><span class="fillbar" style="width:'+(x.fiili/mx*100)+'%"></span>'+fmtInt(x.fiili)+'</td>'
       +'<td><span class="badge '+st[0]+'">'+st[1]+'</span></td><td class="tnum">'+x.tut+' / '+aySay+'</td></tr>';}).join('');
   var detail=selDan?danDetail(rows,selDan):'<div class="empty" style="padding:30px">Detay için tablodan bir danışman seçin.</div>';
@@ -1414,7 +1426,7 @@ function karneRoster(marka){
        (BORUSAN-NEXT), ya da "FIAT" ↔ "Fiat". markaAd BORUSAN-NEXT takma adlarını,
        markaNorm ise harf/boşluk/noktalama farkını köprüler. */
   var aktifMi=function(d){return String(d||'').toLowerCase()==='aktif';};
-  var unvanOk=function(u){return u==='Satış Danışmanı'||u==='Kıdemli Satış Danışmanı';};
+  var unvanOk=satisDanismaniUnvaniMi; // büyük/küçük harf ve Türkçe karakter duyarsız (bkz. unvanKatla)
   var markaEslesir=function(a,b){return a===b||markaAd(a)===markaAd(b)||markaNorm(a)===markaNorm(b);};
   /* Bir danışman yıl içinde marka değiştirmiş olabilir (ör. Fiat'tan Arj'a
      geçmiş) — union yerine, HER danışmanın en SON (en güncel yıl/ay) Aktif
@@ -1568,8 +1580,14 @@ function manuelFiiliGeriAl(marka,danisman,yil,ay){
    Eşleşen kayıt varsa fiilisi override edilir (_manuel, _auto işaretlenir); yoksa
    sentetik satır eklenir (Citroen gibi copilot'ta olmayan manuel girişler için). */
 /* Lojistik personeli satış panosunda görünmez (satış danışmanı değiller).
-   Excel yeniden yüklense bile bu filtre onları her zaman ayıklar. */
-function lojistikMi(unvan){return /lojistik/i.test(unvan||'');}
+   Excel yeniden yüklense bile bu filtre onları her zaman ayıklar.
+   Unvan karşılaştırmaları yazım biçiminden BAĞIMSIZ yapılır: Kolay İK listesi unvanı büyük harfle
+   verir ("LOJİSTİK UZMANI", "SATIŞ DANIŞMANI"), eski dosyalar "Lojistik Uzmanı" diyordu. JS'in /i
+   bayrağı Türkçe "İ"yi "i" ile eşleştirmediğinden 30.10.2026 dosyasında filtre boşa düşmüş ve
+   lojistik personeli tüm markalarda geri gelmişti; karne roster'ı da aynı nedenle boşalıyordu. */
+function unvanKatla(u){return trLower(String(u||'')).replace(/ı/g,'i').replace(/\s+/g,' ').trim();}
+function lojistikMi(unvan){return unvanKatla(unvan).indexOf('lojistik')>=0;}
+function satisDanismaniUnvaniMi(u){var k=unvanKatla(u);return k===unvanKatla('Satış Danışmanı')||k===unvanKatla('Kıdemli Satış Danışmanı');}
 /* BORUSAN-NEXT (satış verisindeki marka adı "Bmw Ps") yalnız gerçek Borusan-Next danışmanlarını içerir.
    Satış verisinde bazı 2.EL/FİLO danışmanları tek bir kullanılmış-BMW satışı yüzünden "Bmw Ps" altında
    görünebilir; bu kayıtlar danışmanın ASIL markasına (en çok kaydı olan diğer marka) geri yazılır.
@@ -1609,7 +1627,7 @@ function fiiliUygula(){
 }
 function karneSubeOrt(marka,yil,ay,haric){
   var vals=(WORK.facts||[]).filter(f=>f.marka===marka&&f.yil===yil&&f.ay===ay&&f.danisman!==haric
-    &&(f.unvan==='Satış Danışmanı'||f.unvan==='Kıdemli Satış Danışmanı')).map(f=>f.fiili);
+    &&satisDanismaniUnvaniMi(f.unvan)).map(f=>f.fiili);
   if(!vals.length)return null;
   return Math.round((vals.reduce((s,v)=>s+v,0)/vals.length)*10)/10;
 }
