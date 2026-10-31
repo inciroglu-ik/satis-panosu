@@ -103,6 +103,15 @@ h1,h2,h3,h4{margin:0;font-weight:700}
 .btn-sm{font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--ink-2)}
 .btn-sm:hover{border-color:var(--brand-2);color:var(--ink)}
 .mini-link{font-size:11px;color:var(--brand-2);font-weight:600;cursor:pointer}
+/* Genel Bakış veri kaynağı seçici: Copilot verisi ↔ Karne verisi */
+.kaynak-sec{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface-2)}
+.kaynak-sec button{flex:1;font-size:12px;font-weight:600;padding:7px 6px;border:0;background:none;color:var(--ink-2)}
+.kaynak-sec button+button{border-left:1px solid var(--line)}
+.kaynak-sec button:hover{color:var(--ink)}
+.kaynak-sec button.on{background:var(--brand);color:#fff;box-shadow:inset 0 -2px 0 var(--accent)}
+.kaynak-taslak{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--ink-2);margin:9px 4px 0;cursor:pointer}
+.kaynak-taslak input{accent-color:var(--accent);width:14px;height:14px}
+.kaynak-not{font-size:11px;color:var(--muted);margin:7px 4px 0;line-height:1.45}
 
 /* ---------- MAIN ---------- */
 .main{flex:1;min-width:0;padding:18px 22px 60px}
@@ -446,6 +455,7 @@ td.name{font-weight:600}
 .empty{color:var(--muted)}
 @media (prefers-color-scheme:dark){
   .tab.on{color:#e0c38a}
+  .kaynak-sec button.on{background:var(--brand-2);color:#e0c38a}
   .kpi .val{color:var(--ink)}
   .marka-head .mk,.dg-marka-row td{color:var(--ink)}
 }
@@ -618,6 +628,8 @@ var VERI=window.VERI||null, WORK=null, SES=null;
 var DIM={markalar:[],danismanlar:[],yillar:[],aylar:[]};
 var FLT={markalar:new Set(),danismanlar:new Set(),aylar:new Set(),yillar:new Set()};
 var TAB='genel', danSearch='', markaOpen={}, danSort={k:'fiili',dir:-1}, selDan=null;
+/* Genel Bakış veri kaynağı: 'copilot' (varsayılan) | 'karne' — bkz. genelKarneVerisi */
+var GENEL_KAYNAK='copilot', GENEL_TASLAK=false;
 
 (function(){
   try{
@@ -807,6 +819,91 @@ function butceToplam(markaSet,aySet){
 function aggBy(rows,key){
   var m={};rows.forEach(function(r){var k=r[key];if(!m[k])m[k]={hedef:0,fiili:0,filo:0,markalar:new Set()};
     m[k].hedef+=r.hedef;m[k].fiili+=r.fiili;m[k].filo+=(r.filo||0);m[k].markalar.add(r.marka);});return m;}
+/* ==================== GENEL BAKIŞ · KARNE VERİSİ KAYNAĞI ====================
+   Ana sayfa varsayılan olarak Copilot verisini gösterir (fiiliUygula — "Excel doğru olsun" kararı).
+   Soldaki "Veri Kaynağı" → "Karne verisi" seçilince Genel Bakış'taki İç Hedef ve Fiili, kayıtlı personel
+   karnelerindeki Araç Satış Adedi hedef/gerçekleşeninden hesaplanır. Kurallar Performans Panosu ile aynı:
+   yalnız kesinleşen karneler (istenirse taslaklar dahil), elle girilen fiili (✎ manuelFiili) karnedeki
+   değerin önüne geçer, hedefi ya da gerçekleşeni boş satır sayılmaz, "Etkisi Yok" ay toplamlara dahil ama
+   hedef tutturma sayımlarına hariç. Bütçe iki görünümde de AYNI hesaplanır (kullanıcı: "bütçe değişmiyor"):
+   aynı aylar ve Copilot'taki markalar — karnesi olmayan markanın bütçesi düşmez.
+   Lojistik personel Copilot'tan gelen karne listesine (roster) giremez ve Copilot verisinden yüklemede ayıklanır;
+   elle eklenen / eski çalışan listeleri için aşağıdaki unvan kontrolü ek güvencedir. */
+/* Karnedeki marka yazımı ("PEUGEOT", "BPS") → Copilot (facts) marka adı ("Peugeot", "Bmw Ps") */
+function karneMarkaFacts(m){
+  var k=markaKanonik(m); if(DIM.markalar.indexOf(k)>=0)return k;
+  var ad=markaAd(m), hit=DIM.markalar.find(function(x){return markaAd(x)===ad;});
+  if(hit)return hit;
+  if(ad==='BORUSAN-NEXT')return 'Bmw Ps';
+  /* Copilot'ta hiç olmayan marka: bütçe tablosundaki yazım kullanılır (Eylül–Aralık resmî hedefi bulunsun) */
+  var hb=Object.keys(HEDEF_BUTCE_2026).find(function(x){return markaNorm(x)===markaNorm(m);});
+  return hb||k;
+}
+function genelKarneVerisi(){
+  /* unvan Copilot verisinden: önce aynı ay, yoksa en güncel kayıt (yalnız lojistik ek güvencesi + unvan grafiği) */
+  var unvAy={}, unvSon={};
+  (VERI.factsAuto||VERI.facts||[]).forEach(function(f){
+    unvAy[f.danisman+'|'+f.yil+'|'+f.ay]=f.unvan;
+    var o=unvSon[f.danisman]; if(!o||(f.yil*100+f.ay)>=(o.yil*100+o.ay))unvSon[f.danisman]=f;
+  });
+  /* Soldaki listeler Copilot verisinden gelir: "hepsi seçili" (Tümü) = boş seçim = kısıt yok, böylece Copilot'ta
+     olmayan bir karne markası/ayı Tümü'ye basınca düşmez. */
+  var hepsi=function(set,dim){return dim.length>0&&dim.every(function(x){return set.has(x);});};
+  var tumMarka=hepsi(FLT.markalar,DIM.markalar), tumAy=hepsi(FLT.aylar,DIM.aylar);
+  var mOk=function(m){return !FLT.markalar.size||tumMarka||FLT.markalar.has(m);};
+  /* Yıl seçilmemişse (ya da hepsi seçiliyse) Copilot verisindeki yıllar: karneler yıllar boyunca birikir — iki
+     görünüm aynı dönemi göstersin, farklı yılların aynı ayı (Ocak 2026 + Ocak 2027) toplanmasın. */
+  var yillar=(FLT.yillar.size&&!hepsi(FLT.yillar,DIM.yillar))?[...FLT.yillar]:DIM.yillar.slice();
+  var yilOk=function(y){return !yillar.length||yillar.some(function(d){return +d===y;});};
+  var izin=(SES&&SES.rol==='mudur')?perfYetkiliMarkalar():null; /* müdür Genel Bakış'ı görmez; yine de yalnız kendi markası */
+  var secim={};
+  (WORK.karneler||[]).forEach(function(k){
+    if(!k||!k.danisman||!k.marka)return;
+    var yil=+k.yil, ay=+k.ay; if(!yil||!(ay>=1&&ay<=12)||!yilOk(yil))return;
+    if(FLT.aylar.size&&!tumAy&&!FLT.aylar.has(ay))return;
+    var marka=karneMarkaFacts(k.marka); if(!mOk(marka))return;
+    if(izin&&!izin.some(function(z){return markaNorm(z)===markaNorm(marka)||markaAd(z)===markaAd(marka);}))return;
+    var as=(k.metrikler||[]).find(function(r){return r&&r.key==='arac_satis';});
+    var h=(!as||as.hedef==null||as.hedef==='')?null:+as.hedef, f=(!as||as.gerceklesen==null||as.gerceklesen==='')?null:+as.gerceklesen;
+    var ov=as?manuelFiiliBul(k.marka,k.danisman,yil,ay):null; if(ov&&ov.fiili!=null&&ov.fiili!=='')f=+ov.fiili;
+    var say=h!=null&&f!=null&&isFinite(h)&&isFinite(f);
+    /* aynı danışman-ay için mükerrer karne: önce kesinleşen, sonra rakamı dolu olan, sonra en son güncellenen */
+    var kes=k.durum==='kesinlesen', anahtar=yil+'|'+ay+'|'+marka+'|'+k.danisman, o=secim[anahtar];
+    if(!o||(kes!==o.kes?kes:(say!==o.say?say:String(k.guncelleme||'')>String(o.k.guncelleme||''))))
+      secim[anahtar]={k:k,kes:kes,say:say,yil:yil,ay:ay,marka:marka,as:as,h:h,f:f,ov:ov};
+  });
+  var aday=[];
+  Object.keys(secim).forEach(function(a){
+    var s=secim[a], k=s.k; if(!s.say)return;
+    var u=unvAy[k.danisman+'|'+s.yil+'|'+s.ay]; if(u==null)u=(unvSon[k.danisman]||{}).unvan;
+    if(lojistikMi(u))return;
+    aday.push({yil:s.yil,ay:s.ay,marka:s.marka,danisman:k.danisman,hedef:s.h,fiili:s.f,filo:0,unvan:u||'',
+      durum:(unvSon[k.danisman]||{}).durum||'',ey:!(s.as.durum==='Başarılı'||s.as.durum==='Yetersiz'),taslak:!s.kes,manuel:!!s.ov});
+  });
+  /* Danışman filtresi filtered() ile aynı mantık: yalnız seçili markalarda işaretli danışman varsa uygulanır;
+     soldaki listede GÖRÜNEN danışmanların hepsi işaretliyse kısıt yok — Copilot'ta satırı olmayan karne
+     danışmanı (ör. ayrılan) da görünür. */
+  var gorunurDan=(FLT.markalar.size&&!tumMarka)
+    ?[...new Set((VERI.facts||[]).filter(function(x){return FLT.markalar.has(x.marka);}).map(function(x){return x.danisman;}))]
+    :DIM.danismanlar;
+  if(FLT.danismanlar.size&&!hepsi(FLT.danismanlar,gorunurDan)){
+    var effDan=new Set();
+    (VERI.facts||[]).concat(aday).forEach(function(x){if(mOk(x.marka)&&FLT.danismanlar.has(x.danisman))effDan.add(x.danisman);});
+    if(effDan.size)aday=aday.filter(function(x){return effDan.has(x.danisman);});
+  }
+  var taslakSay=aday.filter(function(r){return r.taslak;}).length;
+  var rows=GENEL_TASLAK?aday:aday.filter(function(r){return !r.taslak;});
+  var ayList=[...new Set(rows.map(function(r){return r.ay;}))].sort(function(a,b){return a-b;});
+  /* Bütçe dönemi ve marka kümesi Copilot görünümüyle aynı (+ Copilot'ta olmayan karne ayı/markası eklenir) */
+  var donem=aktifAylar().slice(); ayList.forEach(function(a){if(donem.indexOf(a)<0)donem.push(a);}); donem.sort(function(a,b){return a-b;});
+  return {rows:rows, ayList:ayList, donem:donem, cpMarkalar:new Set(filtered().map(function(r){return r.marka;})),
+    taslakHaric:GENEL_TASLAK?0:taslakSay, taslakDahil:GENEL_TASLAK?taslakSay:0};
+}
+function genelKarneBos(kv){
+  return 'Seçili filtrelerle '+(GENEL_TASLAK?'':'kesinleşmiş ')+'karne verisi yok.'
+    +(kv.taslakHaric?' '+kv.taslakHaric+' taslak karne var — soldan “Taslak karneleri de dahil et” kutusunu işaretleyebilirsiniz.'
+      :' Soldan filtreleri genişletin ya da Copilot verisine dönün.');
+}
 var DAN_DURUM=null;
 function danDurum(d){
   if(!DAN_DURUM){DAN_DURUM={};(VERI.facts||[]).forEach(function(r){if(r.danisman&&!DAN_DURUM[r.danisman])DAN_DURUM[r.danisman]=r.durum||'Aktif';});}
@@ -929,8 +1026,20 @@ function renderSidebar(){
   var danList=dl.length
     ? dl.map(d=>'<label><input type="checkbox" data-dan="'+esc(d)+'"'+(FLT.danismanlar.has(d)?' checked':'')+'>'+danAd(d)+'</label>').join('')
     : '<label style="color:var(--muted);cursor:default">Seçili markada danışman yok</label>';
-  s.innerHTML=
-    '<div class="side-title">Dönem</div>'
+  /* Veri kaynağı seçici yalnız Genel Bakış'ta (diğer sekmeler her zaman Copilot verisini gösterir) */
+  var kaynakBlok=TAB!=='genel'?'':'<div id="kaynakBlok">'
+    +'<div class="side-title">Veri Kaynağı</div>'
+    +'<div class="kaynak-sec" role="group" aria-label="Genel Bakış veri kaynağı">'
+    +[['copilot','Copilot verisi'],['karne','Karne verisi']].map(function(o){var on=GENEL_KAYNAK===o[0];
+      return '<button type="button" data-kaynak="'+o[0]+'"'+(on?' class="on"':'')+' aria-pressed="'+on+'">'+o[1]+'</button>';}).join('')
+    +'</div>'
+    +(GENEL_KAYNAK==='karne'
+      ?'<label class="kaynak-taslak"><input type="checkbox" id="kaynakTaslak"'+(GENEL_TASLAK?' checked':'')+'>Taslak karneleri de dahil et</label>'
+        +'<div class="kaynak-not">İç Hedef ve Fiili, kayıtlı karnelerdeki Araç Satış Adedi hedef ve gerçekleşeninden gelir. Bütçe değişmez.</div>'
+      :'<div class="kaynak-not">İç Hedef ve Fiili, Copilot (Satış Hedef Fiili) verisinden gelir.</div>')
+    +'</div>';
+  s.innerHTML=kaynakBlok
+    +'<div class="side-title">Dönem</div>'
     +'<div class="chips" style="margin-bottom:8px">'+qButtons+'</div>'
     +'<div class="chips">'+monChips+'</div>'
     +(DIM.yillar.length>1?'<div class="side-title">Yıl</div><div class="chips">'+yilChips+'</div>':'')
@@ -959,6 +1068,8 @@ function renderSidebar(){
   if(dnA)dnA.onclick=()=>{var allSel=visibleDan.length&&visibleDan.every(d=>FLT.danismanlar.has(d));
     if(allSel)visibleDan.forEach(d=>FLT.danismanlar.delete(d));else visibleDan.forEach(d=>FLT.danismanlar.add(d));sideRefresh();};
   document.getElementById('resetFlt').onclick=()=>{resetFilters();sideRefresh();toast('✓ Filtreler sıfırlandı — tüm veri gösteriliyor');};
+  s.querySelectorAll('[data-kaynak]').forEach(b=>b.onclick=()=>{if(GENEL_KAYNAK===b.dataset.kaynak)return;GENEL_KAYNAK=b.dataset.kaynak;sideRefresh();});
+  var kt=document.getElementById('kaynakTaslak');if(kt)kt.onchange=()=>{GENEL_TASLAK=kt.checked;sideRefresh();};
 }
 function sideRefresh(){renderSidebar();render();}
 
@@ -984,16 +1095,25 @@ function buildTabs(){
 function render(){
   /* Performans Panosu açıkken karne verisi değişmediyse yeniden çizme (iframe yeniden yüklenmesin, filtreler korunsun) */
   if(TAB==='karne'&&!karnePerfKlasik&&(SES.rol==='mudur'?karneMudurSub:karneAdminSub)==='dashboard'&&document.getElementById('kkPerf')&&perfImza()===PERF_IMZA)return;
-  var rows=filtered();
+  /* Genel Bakış'ta kaynak "Karne verisi" ise satırlar kayıtlı karnelerden gelir (bkz. genelKarneVerisi) */
+  var kv=(TAB==='genel'&&GENEL_KAYNAK==='karne')?genelKarneVerisi():null;
+  var rows=kv?kv.rows:filtered();
   var effMarkalar=new Set(rows.map(r=>r.marka));
-  var summary=(TAB==='karne'||TAB==='yonetim')?'':'<b>'+aktifAylar().length+'</b> ay · <b>'+effMarkalar.size+'</b> marka · <b>'
+  var summary=(TAB==='karne'||TAB==='yonetim')?'':kv
+    ?'<b>'+kv.donem.length+'</b> ay'+(kv.ayList.length!==kv.donem.length?' (karnesi olan: '+kv.ayList.length+')':'')
+      +' · <b>'+effMarkalar.size+'</b> marka · <b>'+new Set(rows.map(r=>r.danisman)).size+'</b> danışman · <b>'
+      +rows.length+'</b> karne'+(kv.taslakDahil?' ('+kv.taslakDahil+' taslak dahil)':'')+(kv.taslakHaric?' · '+kv.taslakHaric+' taslak hariç':'')
+      +' · Kaynak: <b>karne verisi</b>'
+    :'<b>'+aktifAylar().length+'</b> ay · <b>'+effMarkalar.size+'</b> marka · <b>'
     +new Set(rows.map(r=>r.danisman)).size+'</b> danışman · <b>'+rows.length+'</b> kayıt seçili';
   document.getElementById('filterSummary').innerHTML=summary;
+  /* Veri kaynağı seçici yalnız Genel Bakış'ta durur: sekme değişince kenar çubuğu yenilenir */
+  if(TAB!=='karne'&&!!document.getElementById('kaynakBlok')!==(TAB==='genel'))renderSidebar();
   var v=document.getElementById('view');
   v.classList.add('fading');
   setTimeout(function(){
-    if(!rows.length&&TAB!=='yonetim'&&TAB!=='karne'){v.innerHTML='<div class="empty">Seçili filtrelerle veri yok. Soldan filtreleri genişletin.</div>';}
-    else if(TAB==='genel')v.innerHTML=viewGenel(rows,effMarkalar);
+    if(!rows.length&&TAB!=='yonetim'&&TAB!=='karne'){v.innerHTML='<div class="empty">'+(kv?genelKarneBos(kv):'Seçili filtrelerle veri yok. Soldan filtreleri genişletin.')+'</div>';}
+    else if(TAB==='genel')v.innerHTML=viewGenel(rows,effMarkalar,kv);
     else if(TAB==='marka')v.innerHTML=viewMarka(rows);
     else if(TAB==='danisman')v.innerHTML=viewDanisman(rows);
     else if(TAB==='veri')v.innerHTML=viewVeri(rows);
@@ -1004,18 +1124,24 @@ function render(){
   },110);
 }
 
-function viewGenel(rows,effMarkalar){
+function viewGenel(rows,effMarkalar,kv){
   /* "FİLO" artık kendi başına bağımsız bir marka (bkz. factsFromHedefFiili) —
      Toplam İç Hedef/Fiili/Bütçe gibi genel (perakende) KPI'lar bu markayı
      hariç tutar; kendisi ise aşağıdaki marka grafiğinde Citroen/Peugeot/Bmw
      ile yan yana kendi çubuğuyla zaten görünür. */
+  /* kv: soldan "Karne verisi" seçiliyse genelKarneVerisi() sonucu; null = Copilot (varsayılan, eski davranış).
+     Bütçe iki görünümde de aynı hesaplanır (kullanıcı: "bütçe değişmiyor"): aynı dönem (kv.donem) ve Copilot'taki
+     markalar + karne markaları (kv.cpMarkalar) — karnesi olmayan markanın bütçesi toplamdan düşmez. */
+  var AA=kv?kv.donem.slice():aktifAylar().slice();
+  var kEt=' · Kaynak: '+(kv?'karne verisi':'Copilot verisi');
   var rowsNF=rows.filter(r=>r.marka!=='FİLO'), rowsFilo=rows.filter(r=>r.marka==='FİLO');
   var effMarkalarNF=new Set([...effMarkalar].filter(m=>m!=='FİLO'));
+  var buMarkaNF=kv?new Set([...effMarkalarNF].concat([...kv.cpMarkalar].filter(m=>m!=='FİLO'))):effMarkalarNF; /* bütçe marka kümesi */
   var th=rowsNF.reduce((s,r)=>s+r.hedef,0), tf=rowsNF.reduce((s,r)=>s+r.fiili,0);
   var tfFilo=rowsFilo.reduce((s,r)=>s+r.fiili,0);
   var oran=th?tf/th:null;
   var danSay=new Set(rowsNF.map(r=>r.danisman)).size;
-  var tBu=butceToplam(effMarkalarNF,aktifAylar());
+  var tBu=butceToplam(buMarkaNF,AA);
   var oranBu=tBu?tf/tBu:null;
   var kpi=
     kpiCard('k-hedef','Toplam İç Hedef',fmtInt(th),danSay+' danışman (filo hariç)')
@@ -1032,21 +1158,21 @@ function viewGenel(rows,effMarkalar){
   var mkChart=groupedBar(mkKeys,[
     {name:'İç Hedef',color:'var(--s-hedef)',values:mkKeys.map(k=>byM[k].hedef)},
     {name:'Fiili',color:'var(--s-fiili)',values:mkKeys.map(k=>byM[k].fiili)},
-    {name:'Bütçe',color:'var(--s-butce)',values:mkKeys.map(k=>butceToplam(new Set([k]),aktifAylar()))}
+    {name:'Bütçe',color:'var(--s-butce)',values:mkKeys.map(k=>butceToplam(new Set([k]),AA))}
   ],{h:340,w:1500,topLabels:mkYtd});
   // aylık trend (nokta üzerinde rakam etiketli) — bütçe hedefi olan ileriki
   // aylar (Ekim/Kasım/Aralık) da eksene eklenir ki gelecek bütçe görünsün.
-  var ays=aktifAylar().slice();
-  if(!FLT.aylar.size){for(var _tm=1;_tm<=12;_tm++){if(ays.indexOf(_tm)<0&&butceToplam(effMarkalarNF,new Set([_tm]))>0)ays.push(_tm);}ays.sort(function(a,b){return a-b;});}
+  var ays=AA.slice();
+  if(!FLT.aylar.size){for(var _tm=1;_tm<=12;_tm++){if(ays.indexOf(_tm)<0&&butceToplam(buMarkaNF,new Set([_tm]))>0)ays.push(_tm);}ays.sort(function(a,b){return a-b;});}
   var trend=lineChart(ays.map(a=>AYLAR[a-1].slice(0,3)),[
     {name:'İç Hedef',color:'var(--s-hedef)',values:ays.map(a=>rowsNF.filter(r=>r.ay===a).reduce((s,r)=>s+r.hedef,0))},
     {name:'Fiili',color:'var(--s-fiili)',values:ays.map(a=>rowsNF.filter(r=>r.ay===a).reduce((s,r)=>s+r.fiili,0))},
-    {name:'Bütçe',color:'var(--s-butce)',values:ays.map(a=>butceToplam(effMarkalarNF,new Set([a])))}
+    {name:'Bütçe',color:'var(--s-butce)',values:ays.map(a=>butceToplam(buMarkaNF,new Set([a])))}
   ],{h:280,w:1500});
   // aylık hedef tutturan / tutturamayan danışman sayısı
   var tutS=[], notS=[];
   ays.forEach(function(a){
-    var byDanA=aggBy(rows.filter(r=>r.ay===a),'danisman'), t=0,nt=0;
+    var byDanA=aggBy(rows.filter(r=>r.ay===a&&!r.ey),'danisman'), t=0,nt=0; /* "Etkisi Yok" (yalnız karne verisinde) sayılmaz */
     Object.keys(byDanA).forEach(function(k){
       var d=byDanA[k]; if(!d.hedef)return;
       if(d.fiili>=d.hedef)t++; else nt++;
@@ -1070,7 +1196,7 @@ function viewGenel(rows,effMarkalar){
     {name:'Fiili',color:'var(--s-fiili)',values:uKeys.map(k=>byU[k].fiili)}
   ],{h:310,w:520});
   // hedef tutturma durum dağılımı (donut)
-  var byDan2=aggBy(rows,'danisman'), okC=0,warnC=0,badC=0,noC=0;
+  var byDan2=aggBy(rows.filter(r=>!r.ey),'danisman'), okC=0,warnC=0,badC=0,noC=0;
   Object.keys(byDan2).forEach(function(k){
     var d=byDan2[k];
     if(!d.hedef){noC++;return;}
@@ -1083,13 +1209,20 @@ function viewGenel(rows,effMarkalar){
     {name:'Hedefin Altında',value:badC,color:'var(--bad)'},
     {name:'Hedefi Yok',value:noC,color:'var(--muted)'}
   ],{w:210,h:210});
-  return '<div class="kpis">'+kpi+'</div>'
-    +'<div class="card"><h3>Marka Bazında İç Hedef vs Fiili vs Bütçe</h3><div class="csub">Seçili döneme göre, fiiliye göre sıralı</div>'
+  var kaynakNot=!kv?'':'<div class="note" style="margin:0 0 16px"><b>Karne verisi gösteriliyor.</b> İç Hedef ve Fiili, personel karnelerindeki '
+    +'Araç Satış Adedi hedef ve gerçekleşeninden alınır; elle girilen (✎) değerler dahildir. '
+    +(GENEL_TASLAK?'Kesinleşen ve taslak karneler birlikte sayılır. '
+      :'Yalnız kesinleşen karneler sayılır'+(kv.taslakHaric?' ('+kv.taslakHaric+' taslak karne hariç — soldan dahil edilebilir)':'')+'. ')
+    +'Bütçe Copilot görünümüyle aynıdır; karnesi henüz girilmemiş ay ve markalar (ör. içinde bulunulan ay, karneleri taslakta '
+    +'kalan markalar) fiiliyi ve bütçeye göre oranı düşük gösterir — karşılaştırma için soldan dönem ve marka seçebilirsiniz. '
+    +'“Etkisi Yok” aylar toplamlara dahildir, hedef tutturma sayımlarına dahil değildir.</div>';
+  return kaynakNot+'<div class="kpis">'+kpi+'</div>'
+    +'<div class="card"><h3>Marka Bazında İç Hedef vs Fiili vs Bütçe</h3><div class="csub">Seçili döneme göre, fiiliye göre sıralı'+kEt+'</div>'
       +legend([{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'},{name:'Bütçe',color:'var(--s-butce)'}])+mkChart+'</div>'
-    +'<div class="card"><h3>Aylık Trend</h3><div class="csub">Seçili aylar</div>'
+    +'<div class="card"><h3>Aylık Trend</h3><div class="csub">Seçili aylar'+kEt+'</div>'
       +legend([{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'},{name:'Bütçe',color:'var(--s-butce)'}])+trend+'</div>'
     +'<div class="grid2">'
-    +'<div class="card"><h3>Hedef Tutturma Durumu</h3><div class="csub">Seçili dönemde danışman dağılımı</div>'
+    +'<div class="card"><h3>Hedef Tutturma Durumu</h3><div class="csub">Seçili dönemde danışman dağılımı'+kEt+'</div>'
       +'<div style="display:flex;align-items:center;gap:22px;flex-wrap:wrap">'+donut
       +'<div class="legend" style="flex-direction:column;align-items:flex-start;gap:8px">'
         +'<span><i style="background:var(--ok)"></i>Hedefi Tuttu ('+okC+')</span>'
@@ -1097,12 +1230,12 @@ function viewGenel(rows,effMarkalar){
         +'<span><i style="background:var(--bad)"></i>Hedefin Altında ('+badC+')</span>'
         +(noC?'<span><i style="background:var(--muted)"></i>Hedefi Yok ('+noC+')</span>':'')
       +'</div></div></div>'
-    +'<div class="card"><h3>Unvan Bazında İç Hedef vs Fiili</h3><div class="csub">Seçili döneme göre, fiiliye göre sıralı</div>'
+    +'<div class="card"><h3>Unvan Bazında İç Hedef vs Fiili</h3><div class="csub">Seçili döneme göre, fiiliye göre sıralı'+kEt+'</div>'
       +legend([{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'}])+uChart+'</div>'
     +'</div>'
-    +'<div class="card"><h3>Aylık Hedef Tutturan / Tutturamayan Danışman Sayısı</h3><div class="csub">Hedefi olan danışmanlar arasında, seçili aylara göre</div>'
+    +'<div class="card"><h3>Aylık Hedef Tutturan / Tutturamayan Danışman Sayısı</h3><div class="csub">Hedefi olan danışmanlar arasında, seçili aylara göre'+kEt+'</div>'
       +legend([{name:'Hedefi Tutturan',color:'var(--ok)'},{name:'Hedefi Tutturamayan',color:'var(--bad)'}])+tutChart+'</div>'
-    +'<div class="card" style="max-width:520px"><h3>Çeyreklik Özet</h3><div class="csub">Seçili filtreler için (filo hariç)</div>'
+    +'<div class="card" style="max-width:520px"><h3>Çeyreklik Özet</h3><div class="csub">Seçili filtreler için (filo hariç)'+kEt+'</div>'
       +'<table><thead><tr><th>Çeyrek</th><th>İç Hedef</th><th>Fiili</th><th>Gerç.</th></tr></thead><tbody>'+(ceyRows||'<tr><td colspan="4" class="empty">—</td></tr>')+'</tbody></table></div>';
 }
 function kpiCard(cls,lbl,val,sub){return '<div class="kpi '+cls+'"><div class="lbl">'+lbl+'</div><div class="val tnum">'+val+'</div><div class="sub">'+esc(sub)+'</div></div>';}
