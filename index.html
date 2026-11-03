@@ -904,18 +904,28 @@ function genelKarneBos(kv){
     +(kv.taslakHaric?' '+kv.taslakHaric+' taslak karne var — soldan “Taslak karneleri de dahil et” kutusunu işaretleyebilirsiniz.'
       :' Soldan filtreleri genişletin ya da Copilot verisine dönün.');
 }
-var DAN_DURUM=null;
+var DAN_DURUM=null, DAN_DURUM_KAYNAK=null;
+/* İş durumu facts'teki "durum" alanından gelir (Copilot Excel → GÜNCEL LİSTE → Çalışma Durumu).
+   Kolay İK ayrılanı "Pasif" yazar (eski DATA sayfası "Eski" yazıyordu) → ikisi de "Eski" sayılır;
+   harf + Türkçe karakter duyarsız (PASİF/Pasif/pasif). Danışmanın aktif satırı varsa aktif kalır.
+   Önbellek facts dizisi değişince (yeni Excel / canlı güncelleme) yeniden kurulur. */
+function isDurumKatla(s){return trLower(String(s||'')).replace(/ı/g,'i').trim();}
 function danDurum(d){
-  if(!DAN_DURUM){DAN_DURUM={};(VERI.facts||[]).forEach(function(r){if(r.danisman&&!DAN_DURUM[r.danisman])DAN_DURUM[r.danisman]=r.durum||'Aktif';});}
+  if(!DAN_DURUM||DAN_DURUM_KAYNAK!==VERI.facts){
+    DAN_DURUM={}; DAN_DURUM_KAYNAK=VERI.facts; var aktif={};
+    (VERI.facts||[]).forEach(function(r){if(!r.danisman)return; var k=isDurumKatla(r.durum);
+      if(k==='aktif')aktif[r.danisman]=1; else if(k==='pasif'||k==='eski')DAN_DURUM[r.danisman]='Eski';});
+    Object.keys(aktif).forEach(function(x){delete DAN_DURUM[x];});
+  }
   return DAN_DURUM[d]||'Aktif';
 }
 /* eskiCalisanlar listesinde (herhangi bir markada) işaretli danışman da "eski"
    sayılır → ana ekranlar/analizler dahil her yerde kırmızı "(Eski)" görünür.
-   (danDurum yalnız Excel'deki durum alanına bakıyordu; elle işaretleme buradan gelir.) */
+   Excel'de "Pasif" olan (danDurum) da buraya dahildir → Performans Panosu da onu eski çalışan sayar. */
 function ayrildiMi(d){
   var arr=(typeof WORK!=='undefined'&&WORK&&WORK.eskiCalisanlar)?WORK.eskiCalisanlar
     :((typeof VERI!=='undefined'&&VERI&&VERI.eskiCalisanlar)?VERI.eskiCalisanlar:[]);
-  return (arr||[]).some(function(e){return e&&e.danisman===d;}) || (danBilgi(d).e===1);
+  return (arr||[]).some(function(e){return e&&e.danisman===d;}) || (danBilgi(d).e===1) || danDurum(d)==='Eski';
 }
 function danAd(d){
   var eski=danDurum(d)==='Eski'||ayrildiMi(d);
@@ -3506,7 +3516,10 @@ function buildTcMap(rowsLISTE){
   for(var r=2;r<rowsLISTE.length;r++){
     var c=rowsLISTE[r]; if(!c)continue;
     var key=normTC(c[cTC]); if(!key)continue;
-    map[key]={departman:c[cDep]||'',bolum:c[cBol]||'',unvan:c[cUnv]||'',durum:c[cDurum]||''};
+    /* Aynı TC birden çok satırda olabilir (yeniden işe giriş: eski "Pasif" + yeni "Aktif" satır; sıra dosyaya
+       göre değişir) → "son satır" değil AKTİF satır esas alınır; aktif satır yoksa son satır. */
+    var yeni={departman:c[cDep]||'',bolum:c[cBol]||'',unvan:c[cUnv]||'',durum:c[cDurum]||''}, onceki=map[key];
+    if(!onceki||isDurumKatla(onceki.durum)!=='aktif'||isDurumKatla(yeni.durum)==='aktif')map[key]=yeni;
   }
   return map;
 }
