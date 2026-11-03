@@ -570,14 +570,16 @@ td.name{font-weight:600}
 .mk-sira .chip{cursor:pointer}
 .marka-head{grid-template-columns:1.3fr repeat(3,.9fr) repeat(2,.85fr) auto}
 .marka-head .m-l{white-space:nowrap}
-.dan-grid{grid-template-columns:minmax(0,1.6fr) minmax(340px,1fr);align-items:start}
-.dan-grid #danDetail{position:sticky;top:132px}
+/* Danışman Analizi: tablo tam genişlik, detay üstte (1366'da sütunlar kesilmesin); çok geniş ekranda detay yanda */
+.dan-grid{grid-template-columns:minmax(0,1fr);align-items:start}
+.dan-grid #danDetail{order:-1;scroll-margin-top:200px}
+@media(min-width:1500px){.dan-grid{grid-template-columns:minmax(0,1fr) 400px}.dan-grid #danDetail{order:0;position:sticky;top:200px}}
 .kural-liste{margin:6px 0 0;padding-left:0;list-style:none;font-size:13px}
 .kural-liste li{padding:6px 0;border-bottom:1px solid var(--grid)}
 .kural-liste li:last-child{border-bottom:0}
 .buay-tablo td,.buay-tablo th{white-space:nowrap}
-@media(max-width:1180px){.dan-grid{grid-template-columns:1fr}.dan-grid #danDetail{order:-1;position:static}}
 @media(max-width:800px){
+  #bildirimBtn{max-width:42px;overflow:hidden;white-space:nowrap;padding:8px 10px!important} /* telefonda yalnız 🔔 */
   .sidebar.fbar{top:58px;padding:8px;border-radius:12px}
   .fb-kaynak{flex-basis:100%;border-right:0;padding-right:0}
   .fb-pop{position:fixed;left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:72vh;overflow:auto}
@@ -1749,7 +1751,7 @@ function viewDanisman(rows){
     return '<tr data-dan="'+esc(x.dan)+'" style="cursor:pointer"><td class="name">'+danAd(x.dan)+'</td><td>'+esc(markaAdList(x.marka))+'</td>'+'<td class="tnum">'+(x.giris?esc(x.giris):'—')+'</td>'+'<td style="text-align:left">'+danDurumHucre(x)+'</td>'
       +'<td class="tnum">'+fmtInt(x.hedef)+'</td><td class="tnum bar-cell"><span class="fillbar" style="width:'+(x.fiili/mx*100)+'%"></span>'+fmtInt(x.fiili)+'</td>'
       +'<td><span class="badge '+st[0]+'">'+st[1]+'</span></td><td class="tnum">'+x.tut+' / '+aySay+'</td></tr>';}).join('');
-  var detail=selDan?danDetail(rows,selDan):'<div class="empty" style="padding:30px">Detay için tablodan bir danışman seçin.</div>';
+  var detail=selDan?danDetail(rows,selDan):'<div class="note" style="margin:0">Bir danışmanın aylık detayını görmek için tablodaki satırına tıklayın.</div>';
   return '<div class="grid2 dan-grid"><div class="card" style="margin-bottom:0"><h3>Danışman Performansı</h3>'
     +'<div class="csub">Başlığa tıklayarak sırala · satıra tıklayarak detay</div>'
     +'<div class="tablewrap"><table><thead><tr>'
@@ -3642,7 +3644,8 @@ function bindDynamic(){
   document.querySelectorAll('th[data-sort]').forEach(t=>t.onclick=()=>{var k=t.dataset.sort;
     if(danSort.k===k)danSort.dir*=-1;else{danSort.k=k;danSort.dir=-1;}render();});
   document.querySelectorAll('tr[data-dan]').forEach(r=>r.onclick=()=>{selDan=r.dataset.dan;
-    document.getElementById('danDetail').innerHTML=danDetail(filtered(),selDan);attachTips();});
+    var dd=document.getElementById('danDetail');dd.innerHTML=danDetail(filtered(),selDan);attachTips();
+    if(innerWidth<1500&&dd.scrollIntoView)dd.scrollIntoView({behavior:'smooth',block:'start'});}); /* detay tablonun üstünde: görünür olsun */
   // csv export
   var ce=document.getElementById('csvExport');if(ce)ce.onclick=exportCsv;
   // admin
