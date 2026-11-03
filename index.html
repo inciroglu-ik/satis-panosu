@@ -1092,7 +1092,11 @@ function lineChart(cats,series,opts){
       /* Değer etiketi: seri.etiket = 'hepsi' | 'son' | 'yok' (varsayılan opts.labels). Aynı ayda etiketi yazılan
          diğer serilerden yüksekte olan etiketi noktanın ÜSTÜNE, alçakta olan ALTINA yazar → etiketler üst üste binmez. */
       if(etiketVar(s,i)){
-        var ust=series.every(function(o){if(o===s||!etiketVar(o,i))return true;var ov=o.values[i];return ov==null||s.values[i]>=ov;});
+        /* Etiket, o aydaki TÜM çizgilere bakılarak boşluğu büyük olan tarafa yazılır (en üstteki üstte, en alttaki altta) */
+        var vs=s.values[i], ustY=null, altY=null;
+        series.forEach(function(o){if(o===s)return;var ov=o.values[i];if(ov==null)return;
+          if(ov>=vs){if(ustY===null||ov<ustY)ustY=ov;}else{if(altY===null||ov>altY)altY=ov;}});
+        var ust=ustY===null?true:(altY===null?false:(ustY-vs)>=(vs-altY));
         g+='<text x="'+p[0]+'" y="'+(ust?(p[1]-9):Math.min(p[1]+17,pt+ih-4))+'" text-anchor="middle" class="vlabel" style="fill:'+s.color+'">'+fmtInt(s.values[i])+'</text>';
       }
     });
@@ -1613,7 +1617,18 @@ function viewGenel(rows,effMarkalar,kv){
    +kpiCard('k-rank','Bütçe Gerçekleşme',fmtPct(oranBu),(tBu?'Bütçe: '+fmtInt(tBu)+' adet · ':'')+'Fiili / Bütçe (filo hariç)');
   // marka grouped bar — Filo, diğer markalarla eşit şekilde kendi çubuğuyla görünür
   var byM=aggBy(rows,'marka'), mkKeys=Object.keys(byM).sort((a,b)=>byM[b].fiili-byM[a].fiili);
-  /* 03.11.2026: 13 marka × 3 dikey sütun yerine marka başına yatay hedef çubuğu (aynı rakamlar, aynı sıra) */
+  /* Genel durum grafiği (kullanıcı isteği 03.11.2026: en üstte AYNEN kalsın) — Filo, diğer markalarla eşit şekilde kendi çubuğuyla görünür */
+  var mkYtd=mkKeys.map(function(k){
+    var d=byM[k], o=d.hedef?d.fiili/d.hedef:null, st=statusOf(o);
+    var col=st[0]==='b-ok'?'var(--ok)':st[0]==='b-warn'?'var(--warn)':'var(--bad)';
+    return {text:st[1], color:col};
+  });
+  var mkGrafik=groupedBar(mkKeys,[
+    {name:'İç Hedef',color:'var(--s-hedef)',values:mkKeys.map(k=>byM[k].hedef)},
+    {name:'Fiili',color:'var(--s-fiili)',values:mkKeys.map(k=>byM[k].fiili)},
+    {name:'Bütçe',color:'var(--s-butce)',values:mkKeys.map(k=>butceToplam(new Set([k]),AA))}
+  ],{h:340,w:1500,topLabels:mkYtd});
+  /* Altında yeni bölüm: marka başına yatay hedef çubuğu (aynı rakamlar, aynı sıra) */
   var mkChart=markaHedefCubuklari(mkKeys,byM,AA);
   // aylık trend (nokta üzerinde rakam etiketli) — bütçe hedefi olan ileriki
   // aylar (Ekim/Kasım/Aralık) da eksene eklenir ki gelecek bütçe görünsün.
@@ -1626,7 +1641,7 @@ function viewGenel(rows,effMarkalar,kv){
   var trendH=ays.map(a=>veriAyi(a)?rowsNF.filter(r=>r.ay===a).reduce((s,r)=>s+r.hedef,0):null);
   var trendF=ays.map(a=>veriAyi(a)?rowsNF.filter(r=>r.ay===a).reduce((s,r)=>s+r.fiili,0):null);
   var trend=lineChart(ays.map(a=>AYLAR[a-1].slice(0,3)),[
-    {name:'İç Hedef',color:'var(--s-hedef)',values:trendH,etiket:'hepsi'},
+    {name:'İç Hedef',color:'var(--s-hedef)',values:trendH,etiket:'son'},
     {name:'Fiili',color:'var(--s-fiili)',values:trendF,etiket:'hepsi'},
     {name:'Bütçe',color:'var(--s-butce)',values:ays.map(a=>butceToplam(buMarkaNF,new Set([a]))),etiket:'son'}
   ],{h:300,w:1500,devamIdx:devamIdx});
@@ -1676,8 +1691,10 @@ function viewGenel(rows,effMarkalar,kv){
     +'“Etkisi Yok” aylar toplamlara dahildir, hedef tutturma sayımlarına dahil değildir.</div>';
   var devamNot=devamIdx>=0?'<div class="ozet-cumle">'+devamEdenAyNotu(ays[devamIdx])+'</div>':'';
   return kaynakNot+'<div class="kpis">'+kpi+'</div>'
+    +'<div class="card"><h3>Marka Bazında İç Hedef vs Fiili vs Bütçe</h3><div class="csub">Seçili döneme göre, fiiliye göre sıralı'+kEt+'</div>'
+      +legend([{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'},{name:'Bütçe',color:'var(--s-butce)'}])+mkGrafik+'</div>'
     +(kv?'':buAySeritHtml(buMarkaNF))
-    +'<div class="card"><h3>'+esc(markaOzetCumlesi(mkKeys,byM,AA))+'</h3><div class="csub">Marka bazında iç hedef, fiili ve bütçe · seçili döneme göre, fiiliye göre sıralı'+kEt+'</div>'
+    +'<div class="card"><h3>'+esc(markaOzetCumlesi(mkKeys,byM,AA))+'</h3><div class="csub">Marka karşılaştırması · hedef çubukları · fiiliye göre sıralı'+kEt+'</div>'
       +'<div class="legend"><span><i style="background:var(--s-fiili)"></i>Fiili (çubuk)</span><span><i class="lej-iz" style="background:var(--s-hedef)"></i>İç Hedef (çizgi)</span><span><i class="lej-iz" style="background:var(--s-butce)"></i>Bütçe (çizgi)</span><span style="color:var(--muted)">Sağda: iç hedefe ve bütçeye (B) göre gerçekleşme</span></div>'+mkChart+'</div>'
     +'<div class="card"><h3>'+esc(trendOzetCumlesi(ays,trendH,trendF,devamIdx))+'</h3><div class="csub">Aylık trend · seçili aylar'+kEt+'</div>'+devamNot
       +legend([{name:'İç Hedef',color:'var(--s-hedef)'},{name:'Fiili',color:'var(--s-fiili)'},{name:'Bütçe',color:'var(--s-butce)'}])+trend+'</div>'
