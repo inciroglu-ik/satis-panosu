@@ -1331,7 +1331,8 @@ function kuralOzeti(){
   var bpsSonra=f.filter(function(r){return r.marka==='Bmw Ps';}).length;
   var pasif=0; new Set(f.map(function(r){return r.danisman;})).forEach(function(d){if(ayrildiMi(d))pasif++;});
   var s=veriSagligi(excelSaglikVerisi());
-  return {kayit:f.length,bnTasinan:Math.max(0,bpsOnce-bpsSonra),pasif:pasif,dups:s.dups.length,suphe:s.suphe.length,bosluk:s.gaps.length,uyari:s.dups.length+s.suphe.length};
+  var db=VERI.danismanBilgi||{}, filoIst=Object.keys(db).filter(function(d){return db[d]&&db[d].fm;}).length;
+  return {kayit:f.length,bnTasinan:Math.max(0,bpsOnce-bpsSonra),pasif:pasif,filoIst:filoIst,dups:s.dups.length,suphe:s.suphe.length,bosluk:s.gaps.length,uyari:s.dups.length+s.suphe.length};
 }
 function kuralOzetiHtml(){
   var k=kuralOzeti(), L=(window.SatisFB&&window.SatisFB.latest)||{};
@@ -1342,6 +1343,7 @@ function kuralOzetiHtml(){
     +'<li>✓ Unvanı “Lojistik” içeren personel tüm ekranlardan gizli — Excel yüklenirken ayıklanır, canlı veriye yazılmaz.</li>'
     +'<li>✓ BORUSAN-NEXT listesinde olmayan danışmanların tekil Bmw Ps satışları asıl markalarında: <b>'+k.bnTasinan+'</b> satır taşındı.</li>'
     +'<li>✓ Pasif / ayrılan olarak işaretli danışman: <b>'+k.pasif+'</b> — her ekranda kırmızı “(Eski)”.</li>'
+    +(k.filoIst?'<li>✓ FİLO departmanına geçmiş ama eski markasında görünen danışman (Danışman Bilgisi): <b>'+k.filoIst+'</b> — satışları ve listeleri eski markasında.</li>':'')
     +'<li>✓ Eylül–Aralık bütçe hedefleri koddaki resmî tablodan okunur; Excel yüklemesi bunları değiştirmez.</li>'
     +'<li>'+(k.uyari?'⚠':'✓')+' Veri sağlığı: <b>'+k.dups+'</b> mükerrer kayıt, <b>'+k.suphe+'</b> şüpheli değer'
       +(k.bosluk?' · '+k.bosluk+' ay boşluğu (bilgi amaçlı)':'')+' — ayrıntı aşağıda.</li>'
@@ -2216,6 +2218,15 @@ function satisDanismaniUnvaniMi(u){var k=unvanKatla(u);return k===unvanKatla('Sa
    roster eşleşmesini etkiler; satış/analiz/karne verisine dokunmaz. */
 function borusanNextMi(d){ return danBilgi(d).bn===1; }
 function rosterMarkaIstisnasi(d){ return danBilgi(d).rmk||null; }
+/* FİLO istisnası (04.11.2026, kullanıcı isteği): danışman bilgisinde "fm" (marka) işareti olan danışman Kolay İK'da
+   FİLO departmanına geçmiş olsa da satışları, hedefleri ve ekip listeleri eski markasında — hâlâ orada çalışıyormuş
+   gibi — görünür. Excel okunurken satır Plaza'daki markasında kalır (factsFromHedefFiili); daha önce FİLO olarak
+   yüklenmiş kayıtlar ekranda "fm" markasına alınır (filoIstisnaDuzelt). Kişi adları kaynak kodda tutulmaz. */
+function filoMarkaIstisnasi(d){ var m=danBilgi(d).fm; return m?canonMarka(String(m)):null; }
+function filoIstisnaDuzelt(facts){
+  (facts||[]).forEach(function(f){ if(f.marka!=='FİLO')return; var m=filoMarkaIstisnasi(f.danisman); if(m)f.marka=m; });
+  return facts;
+}
 function bmwPsDuzelt(facts){
   if(!facts||!facts.length)return facts;
   var sayac={}; // danisman -> { marka: kayıt_sayısı }  (Bmw Ps hariç)
@@ -2241,6 +2252,7 @@ function fiiliUygula(){
      gölgeleyip fiili toplamını şişiriyordu. Eski override verisi Firestore'da kalsa bile
      Genel Bakış / Marka / Danışman görünümlerine bir daha etki etmez. */
   var res=auto.map(function(f){return Object.assign({},f);});
+  filoIstisnaDuzelt(res); // FİLO'ya geçmiş ama eski markasında görünecek danışmanlar (danışman bilgisi "fm")
   bmwPsDuzelt(res); // BORUSAN-NEXT'e ait olmayan tekil "Bmw Ps" satışlarını asıl markaya taşı
   VERI.facts=res; if(WORK)WORK.facts=res;
   markaKanonik._map=null;
@@ -3688,6 +3700,7 @@ function danismanBilgiYukle(f){
     });
     window.SatisFB.pushDanismanBilgi(ozet,detay).then(function(){
       VERI.danismanBilgi=ozet; VERI.danismanDetay=detay;
+      fiiliUygula(); buildDims();   /* bayraklar (fm/bn) veriye hemen uygulansın */
       if(msg)msg.innerHTML='<div class="ok-msg">✓ '+Object.keys(o.veri).length+' danışmanın bilgisi kaydedildi.</div>';
       render();
     }).catch(function(e){if(msg)msg.innerHTML='<div class="err-msg">Kaydedilemedi: '+esc((e&&e.message)||'')+'</div>';});
@@ -4083,7 +4096,8 @@ function factsFromHedefFiili(rowsHEDEF,rowsFIILI,rowsLISTE){
          listeler; ayrıca bu kişiler PSA/Peugeot gibi gerçek markaların
          danışman listelerinde bir daha hiç görünmez (marka alanı zaten
          farklı olduğu için ekstra bir filtre gerekmez). */
-      var finalMarka=isFilo?'FİLO':canonMarka(marka);
+      /* FİLO istisnası: danışman bilgisinde "fm" işareti varsa departmanı FİLO olsa da satır Plaza markasında kalır */
+      var finalMarka=(isFilo&&!filoMarkaIstisnasi(danNorm))?'FİLO':canonMarka(marka);
       facts.push({yil:yil,ay:ay,marka:finalMarka,danisman:danNorm,
                   hedef:hedefMap[key]||0,fiili:famt,filo:0,
                   unvan:unvan||'',durum:durum||''});
