@@ -145,6 +145,41 @@
   .dosya-adi { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--metin-2); background: var(--pir-50); border-radius: 10px; padding: 9px 12px; box-shadow: inset 0 0 0 1px var(--pir-200); word-break: break-word; }
   .dosya-adi svg { width: 16px; height: 16px; color: var(--pir-700); flex: none; }
 
+  /* Metrik başarıları — genel metrik grafiği (04.11.2026) */
+  .mp-grup + .mp-grup { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--cizgi-1); }
+  .mp-grup-bas { display: flex; justify-content: space-between; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; margin: 0 8px 4px; }
+  .mp-grup-bas b { font-size: var(--fs-2xs); font-weight: var(--fw-yari); letter-spacing: .08em; text-transform: uppercase; color: var(--metin-2); }
+  .mp-grup-bas span { font-size: 11px; color: var(--metin-3); }
+  .mp-satir, .mp-eksen { display: grid; grid-template-columns: minmax(140px, 250px) minmax(0, 1fr) 132px 64px 128px; gap: 14px; align-items: center; }
+  .mp-satir { box-sizing: border-box; width: 100%; padding: 8px 8px; margin: 0; border: 0; border-radius: 10px; background: transparent; font: inherit; color: inherit; text-align: left; transition: background var(--sure-kisa); }
+  button.mp-satir { cursor: pointer; }
+  button.mp-satir:hover { background: var(--n-50); }
+  button.mp-satir:focus-visible { box-shadow: var(--odak-halkasi); }
+  .mp-satir.bos { opacity: .55; }
+  .mp-satir.toplam { background: var(--lac-50); margin-top: 6px; }
+  .mp-satir.toplam .mp-ad b { color: var(--lac-800); }
+  .mp-eksen { height: 16px; padding: 0 8px; }
+  .mp-olcek { position: relative; height: 100%; font-size: 10.5px; color: var(--metin-3); font-variant-numeric: tabular-nums; }
+  .mp-olcek span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+  .mp-olcek span:first-child { transform: none; }
+  .mp-ad { min-width: 0; }
+  .mp-ad b { display: block; font-size: 12.5px; font-weight: 600; color: var(--metin-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mp-ad small { display: block; font-size: 10.5px; color: var(--metin-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .mp-cubuk { position: relative; display: block; height: 14px; border-radius: 7px; background: var(--n-100); }
+  .mp-cubuk > i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--o, 0) * 100%); border-radius: 7px; background: var(--mp-renk, var(--g1)); transform-origin: left;
+    animation: olcek-dol var(--sure-gosterge) var(--egri-ibre) both; animation-delay: calc(var(--i, 0) * 35ms); }
+  .mp-cubuk > b { position: absolute; top: -4px; bottom: -4px; left: calc(var(--h) * 100%); width: 2px; margin-left: -1px; border-radius: 1px; background: var(--pir-600); }
+  .mp-cubuk.tasar::after { content: '›'; position: absolute; right: 5px; top: -3px; font-size: 14px; font-weight: 700; color: #fff; }
+  .mp-sayi { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--metin-3); white-space: nowrap; }
+  .mp-sayi b { color: var(--metin-1); font-weight: 600; font-size: 13.5px; }
+  .mp-yuzde .cip { min-width: 58px; justify-content: center; }
+  .mp-deg { display: flex; gap: 9px; justify-content: flex-end; font-size: 11.5px; color: var(--metin-2); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .mp-deg span { display: inline-flex; align-items: center; gap: 4px; }
+  .mp-deg i, .mp-nokta { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+  #mpGeri[hidden], #listeKlasik[hidden], #listePano[hidden], #secKlasik[hidden], #secPano[hidden] { display: none !important; }
+  .konsol-alt .btn-lacivert { margin-left: auto; }
+  .konsol-alt .btn-lacivert + .btn-pirinc { margin-left: 0; }
+
   /* ---------- DUYARLI ---------- */
   @media (max-width: 1180px) {
     .kpi-satir { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -177,7 +212,11 @@
     .f-durum .bolumlu { display: grid; grid-template-columns: repeat(4, 1fr); }
     .f-durum .bolumlu button { padding: 0 4px; justify-content: center; }
     .btn-sifirla { grid-column: 1 / -1; justify-content: center; }
-    .konsol-alt .btn-pirinc { margin-left: 0; width: 100%; justify-content: center; }
+    .konsol-alt .btn-pirinc, .konsol-alt .btn-lacivert { margin-left: 0; width: 100%; justify-content: center; }
+    .mp-eksen { display: none; }
+    .mp-satir { grid-template-columns: minmax(0, 1fr) auto 58px; gap: 6px 10px; padding: 9px 6px; }
+    .mp-satir .mp-cubuk-hucre { grid-column: 1 / -1; grid-row: 2; }
+    .mp-deg { display: none; }
     .kpi-satir { gap: 10px; }
     .kpi { padding: 14px 14px 12px; }
     .kpi-deger { font-size: 20px; }
@@ -234,11 +273,27 @@
     <div class="konsol-alt">
       <span class="ozet-metin" id="ozet"></span>
       <span id="cipler" style="display:contents"></span>
+      <button class="btn btn-lacivert" id="panoBtn" title="Dilimleyicili (filtrelenebilir) Excel panosu: metrik, danışman, ay ve çeyrek seçimine göre değişen grafikler ve tablolar"><span data-ikon="genel"></span>Excel Dashboard (dilimleyicili)</button>
       <button class="btn btn-pirinc" id="raporBtn"><span data-ikon="excel"></span>Rapor indir (Excel)</button>
     </div>
   </section>
 
   <section class="kpi-satir" id="kpiler" aria-label="Özet göstergeler"></section>
+
+  <article class="kart" id="mpKart" aria-labelledby="mpBaslik">
+    <div class="kart-ust">
+      <div>
+        <h2 class="kart-baslik" id="mpBaslik">Metrik başarıları</h2>
+        <div class="kart-alt" id="mpAlt"></div>
+      </div>
+      <button type="button" class="btn btn-hayalet" id="mpGeri" hidden><span data-ikon="sifirla"></span>Tüm metrikler</button>
+    </div>
+    <div id="mpListe"></div>
+    <div class="kart-alt-cubuk">
+      <div class="lejant" id="mpLejant"></div>
+      <span class="kart-alt" id="mpIpucu"></span>
+    </div>
+  </article>
 
   <section class="izgara">
     <article class="kart s8">
@@ -327,18 +382,27 @@
       <div class="modal-ikon" data-ikon="excel"></div>
       <div>
         <h3 id="raporBaslik">Danışman / Satış Performans Raporu</h3>
-        <p>Excel (.xlsx) · seçili filtrelerle, yetkili olduğunuz marka için hazırlanır</p>
+        <p id="raporAciklama">Excel (.xlsx) · seçili filtrelerle, yetkili olduğunuz marka için hazırlanır</p>
       </div>
     </header>
     <div class="modal-govde">
       <div class="rapor-ozet" id="raporOzet"></div>
-      <ul class="sayfa-liste">
+      <ul class="sayfa-liste" id="listeKlasik">
         <li><span class="no">1</span><div><b>Aylık Başarı Özeti</b><p>Danışman × ay başarı %, Ortalama sütunu · Yeşil ≥%80 · Amber %50–79 · Kırmızı &lt;%50</p></div></li>
         <li><span class="no">2</span><div><b>Metrik Bazında Başarı %</b><p>Her danışman için metrik × ay · Yeşil = Başarılı · Kırmızı = Yetersiz · Gri = Etkisi Yok</p></div></li>
         <li><span class="no">3</span><div><b>Satış Hedef - Fiili</b><p>Hedef · Fiili (Gerçekleşen) · Başarı % satırları (Araç Satış Adedi — adet)</p></div></li>
         <li><span class="no">4</span><div><b>Grafikler</b><p>Danışman ortalama başarısı · aylık ekip başarısı · araç satış hedef / gerçekleşen</p></div></li>
       </ul>
-      <label class="secenek"><input type="checkbox" id="rYalnizKesin"> Yalnız kesinleşen karneler (taslakları rapora alma)</label>
+      <ul class="sayfa-liste" id="listePano" hidden>
+        <li><span class="no">1</span><div><b>Pano</b><p>Soldaki dilimleyiciler: Çeyrek · Ay · Danışman · Metrik · Çalışan Durumu. 4 gösterge, 4 grafik ve metrik / aylık / danışman özet tabloları seçime göre anında değişir.</p></div></li>
+        <li><span class="no">2</span><div><b>Veri</b><p>Karnelere girilen her metrik değeri (karne × metrik satırı) · Excel tablosu — dilimleyiciler bu tabloyu süzer. Eski çalışanlar dahil.</p></div></li>
+      </ul>
+      <label class="secenek" id="secKlasik"><input type="checkbox" id="rYalnizKesin"> Yalnız kesinleşen karneler (taslakları rapora alma)</label>
+      <div id="secPano" hidden>
+        <label class="secenek"><input type="checkbox" id="pEkran" checked> Ekrandaki seçim (dönem, danışman, metrik) dilimleyicilerde seçili gelsin</label>
+        <label class="secenek"><input type="checkbox" id="pTaslak"> Taslak karneleri de ekle (açılışta “Karne Durumu: Kesinleşen” seçili gelir)</label>
+        <p class="kart-not"><span data-ikon="bilgi"></span><span>Rakamlar bu ekrandakiyle aynıdır: yalnız kesinleşen karneler, “Etkisi Yok” aylar hedef/gerçekleşen toplamına dahil. Excel 2013 ve sonrası (Microsoft 365 dahil) gerekir.</span></p>
+      </div>
       <div class="dosya-adi" id="dosyaAdi"></div>
     </div>
     <footer class="modal-alt">
@@ -991,12 +1055,105 @@ function tabloCiz(danlar) {
   $('tabloAlt').textContent = `${oz.length} danışman · ${DNM[S.donem].ad} · sıralama: ${SUTUN.find(s => s.k === S.sira.k).ad} (${S.sira.y > 0 ? 'artan' : 'azalan'})`;
 }
 
+/* ================= METRİK BAŞARILARI — genel metrik grafiği (04.11.2026, kullanıcı isteği) =================
+   Açılışta markanın TÜM metrikleri: her metrikte dönem toplamı gerçekleşen / hedef ve gerçekleşme %. Danışman seçilince
+   aynı grafik o danışmanın karneleriyle çizilir; metrik seçilince (filtre ya da satıra tıklama) o metriğin aylık dökümü.
+   Kurallar panonun geri kalanıyla aynı: yalnız kesinleşen karneler · "Etkisi Yok" aylar fiili/hedef toplamına dahil,
+   Başarılı/Yetersiz sayımına hariç · renk ≥%100 / %80–99 / <%80 (Genel Bakış ile aynı) · eski çalışanlar dahil. */
+function mpTopla(ks, key) {
+  const o = { h: 0, f: 0, n: 0, B: 0, Y: 0, EY: 0, man: false, karne: ks.length, say: MET[key].tip === 'sayi' };
+  ks.forEach(k => { const x = k.m[key]; if (!x) return; if (sayisal(x)) { o.h += x.h; o.f += x.f; o.n++; if (x.manuel) o.man = true; } o[x.d] = (o[x.d] || 0) + 1; });
+  o.oran = o.say ? (o.h > 0 ? o.f / o.h * 100 : null) : ((o.B + o.Y) ? o.B / (o.B + o.Y) * 100 : null);
+  return o;
+}
+const mpAdet = v => Number.isInteger(+v) ? sayi(+v) : sayi(+v, 1);
+function mpOlcek(oranlar) {
+  const m = Math.max(0, ...oranlar.filter(v => v !== null && v !== undefined));
+  return Math.min(250, Math.max(120, Math.ceil((m + 6) / 10) * 10));
+}
+function metrikPanoCiz(danlar) {
+  const el = $('mpListe'), ayl = aylar(), ids = danlar.map(d => d.id), ks = kesinler(ids, ayl);
+  const tas = KARNE.filter(k => k.taslak && ayl.includes(k.ay) && ids.includes(k.dan)).length;
+  const kim = S.dan ? DANI[S.dan] : null, kimAd = kim ? kim.ad + (kim.eski ? ' (Eski Çalışan)' : '') : MARKA_AD + ' geneli';
+  const eskiN = kim ? 0 : danlar.filter(d => d.eski && ks.some(k => k.dan === d.id)).length;
+  const ayModu = !!S.metrik, mt = ayModu ? MET[S.metrik] : null;
+  $('mpBaslik').textContent = ayModu ? `${mt.ad} — aylık · ${kimAd}` : `Metrik başarıları — ${kimAd}`;
+  $('mpAlt').textContent = `${DNM[S.donem].ad} · ${ks.length} kesinleşen karne${tas ? ` · ${tas} taslak hariç` : ''}`
+    + (kim ? '' : ` · ${danlar.filter(d => ks.some(k => k.dan === d.id)).length} danışman${eskiN ? ` (${eskiN} eski çalışan dahil)` : ''}`)
+    + (S.durum !== 'tum' ? ' · durum: ' + BANT_AD[S.durum] + ' alan danışmanlar' : '');
+  $('mpGeri').hidden = !ayModu;
+  $('mpIpucu').textContent = ayModu ? 'Dönem toplamı: seçili aylar · “Tüm metrikler” ile genel grafiğe dönün' : 'Satıra tıklayın: metriğin aylık dökümü · Danışman seçin: grafik o danışmana göre şekillenir';
+  $('mpLejant').innerHTML = '<span><i style="background:var(--ok-500)"></i>≥ %100 hedefte</span><span><i style="background:var(--uy-500)"></i>%80–99 hedefe yakın</span><span><i style="background:var(--ht-500)"></i>&lt; %80 hedefin altında</span>'
+    + '<span><i class="cizgi" style="background:var(--pir-600);width:3px;height:12px"></i>Hedef %100</span><span><i style="background:var(--lac-500)"></i>Müdür değerlendirmesi: başarılı karne oranı</span>';
+  el.textContent = '';
+  if (!ks.length) {
+    el.innerHTML = `<div class="bos-durum"><div class="bos-ikon">${ikon('filtre')}</div><h3>Bu filtrelerle kesinleşmiş karne bulunamadı</h3><p></p></div>`;
+    el.querySelector('p').textContent = tas ? `Seçili dönemde ${tas} taslak karne var; taslaklar hesaplara katılmaz. Karneler kesinleşince burada görünür.` : 'Dönemi genişletin ya da filtreleri sıfırlayın.';
+    return;
+  }
+  let sira = 0;
+  const grup = (baslik, aciklama, satirlar, ust, centik, toplam) => {
+    const g = document.createElement('div'); g.className = 'mp-grup';
+    g.innerHTML = '<div class="mp-grup-bas"><b></b><span></span></div>';
+    g.querySelector('b').textContent = baslik; g.querySelector('span').textContent = aciklama;
+    const ek = document.createElement('div'); ek.className = 'mp-eksen'; ek.setAttribute('aria-hidden', 'true');
+    const tik = []; for (let v = 0; v <= ust; v += 50) tik.push(v);
+    ek.innerHTML = `<span></span><span class="mp-olcek">${tik.map(v => `<span style="left:${v / ust * 100}%">%${v}</span>`).join('')}</span><span></span><span></span><span></span>`;
+    g.appendChild(ek);
+    satirlar.concat(toplam ? [toplam] : []).forEach(s => g.appendChild(mpSatir(s, ust, centik, sira++)));
+    el.appendChild(g);
+  };
+  if (!ayModu) {
+    const satir = METRIKLER.map(m => ({ ad: m.ad, key: m.key, o: mpTopla(ks, m.key), tik: true }));
+    const sayiS = satir.filter(s => s.o.say), degS = satir.filter(s => !s.o.say);
+    if (sayiS.length) grup('Sayısal hedefli metrikler', 'çubuk: gerçekleşme % = gerçekleşen ÷ hedef · rakam: gerçekleşen / hedef', sayiS, mpOlcek(sayiS.map(s => s.o.oran)), true);
+    if (degS.length) grup('Müdür değerlendirmesi', 'sayısal hedef yok · çubuk: başarılı karne oranı · rakam: başarılı / değerlendirilen karne', degS, 100, false);
+  } else {
+    const satir = ayl.map(a => ({ ad: AYLAR[a] + ' ' + YIL, a, o: mpTopla(kesinler(ids, [a]), S.metrik), tas: KARNE.filter(k => k.taslak && k.ay === a && ids.includes(k.dan)).length }));
+    const top = ayl.length > 1 ? { ad: 'Dönem toplamı', toplam: true, o: mpTopla(ks, S.metrik) } : null;
+    grup(mt.tip === 'sayi' ? 'Aylık gerçekleşme' : 'Aylık başarılı karne oranı',
+      mt.tip === 'sayi' ? 'çubuk: gerçekleşme % · rakam: gerçekleşen / hedef (Etkisi Yok aylar dahil)' : 'müdür değerlendirmesi · rakam: başarılı / değerlendirilen karne',
+      satir, mt.tip === 'sayi' ? mpOlcek(satir.map(s => s.o.oran).concat(top ? [top.o.oran] : [])) : 100, mt.tip === 'sayi', top);
+  }
+}
+function mpSatir(s, ust, centik, i) {
+  const o = s.o, b = document.createElement(s.tik ? 'button' : 'div');
+  b.className = 'mp-satir' + (o.oran === null ? ' bos' : '') + (s.toplam ? ' toplam' : '');
+  if (s.tik) b.type = 'button';
+  const bnd = o.say && o.oran !== null ? oranBant(o.oran) : null;
+  const renk = o.say ? (bnd ? { B: 'var(--ok-500)', S: 'var(--uy-500)', Y: 'var(--ht-500)' }[bnd] : 'var(--n-300)') : 'var(--lac-500)';
+  const cip = o.oran === null ? 'cip-ey' : (o.say ? { B: 'cip-ok', S: 'cip-uy', Y: 'cip-ht' }[bnd] : 'cip-bilgi');
+  const w = o.oran === null ? 0 : Math.min(o.oran, ust) / ust;
+  const alt = o.karne === 0 ? (s.tas ? `${s.tas} taslak karne · hesaba katılmaz` : 'karne yok') : (o.say && !o.n ? 'hedef / gerçekleşen girilmemiş' : `${o.karne} karne${o.man ? ' · ✎ elle girilen fiili var' : ''}`);
+  b.innerHTML = `<span class="mp-ad"><b></b><small></small></span>`
+    + `<span class="mp-cubuk-hucre"><span class="mp-cubuk${o.oran !== null && o.oran > ust ? ' tasar' : ''}" style="--o:${w};--mp-renk:${renk};--i:${Math.min(i, 24)}">${o.oran !== null ? '<i></i>' : ''}${centik ? `<b style="--h:${100 / ust}"></b>` : ''}</span></span>`
+    + `<span class="mp-sayi">${o.say ? (o.n ? `<b>${mpAdet(o.f)}</b> / ${mpAdet(o.h)}` : '—') : ((o.B + o.Y) ? `<b>${o.B}</b> / ${o.B + o.Y}` : '—')}</span>`
+    + `<span class="mp-yuzde"><span class="cip ${cip}">${o.oran === null ? '—' : yuzde(o.oran)}</span></span>`
+    + `<span class="mp-deg"><span title="Başarılı"><i style="background:var(--ok-500)"></i>${o.B}</span><span title="Yetersiz"><i style="background:var(--ht-500)"></i>${o.Y}</span><span title="Etkisi Yok"><i style="background:var(--ey-400)"></i>${o.EY}</span></span>`;
+  b.querySelector('.mp-ad b').textContent = s.ad; b.querySelector('.mp-ad small').textContent = alt;
+  const satirlar = o.say
+    ? [{ etiket: 'Gerçekleşme', deger: o.oran === null ? '—' : yuzde(o.oran, 1), buyuk: true }, { etiket: 'Gerçekleşen', deger: o.n ? mpAdet(o.f) : '—', renk: 'var(--g1)' }, { etiket: 'Hedef', deger: o.n ? mpAdet(o.h) : '—', renk: 'var(--pir-600)' }]
+    : [{ etiket: 'Başarılı karne oranı', deger: o.oran === null ? '—' : yuzde(o.oran, 1), buyuk: true }];
+  satirlar.push({ etiket: 'Başarılı / Yetersiz / Etkisi Yok', deger: `${o.B} / ${o.Y} / ${o.EY}` });
+  if (o.say && o.EY) satirlar.push({ etiket: 'Etkisi Yok aylar', deger: 'toplama dahil' });
+  if (o.man) satirlar.push({ etiket: 'Not', deger: 'elle girilen araç satış fiilisi dahil ✎' });
+  b.addEventListener('pointermove', e => ipucuGoster(e.clientX, e.clientY, { baslik: `${s.ad} · ${DNM[S.donem].ad}`, satirlar }));
+  b.addEventListener('pointerleave', ipucuGizle);
+  b.setAttribute('aria-label', `${s.ad}: ${o.say ? (o.n ? `gerçekleşen ${mpAdet(o.f)}, hedef ${mpAdet(o.h)}` : 'rakam girilmemiş') : `${o.B} başarılı, ${o.Y} yetersiz`}, ${o.oran === null ? 'oran yok' : yuzde(o.oran)}`);
+  if (s.tik && s.key) b.onclick = () => { ipucuGizle(); S.metrik = s.key; senkron(); durumCiz(); ciz(); try { $('mpKart').scrollIntoView({ block: 'nearest' }); } catch (e) { } };
+  return b;
+}
+
 function senkron() { fDonem.value = S.donem; fDan.value = S.dan; fMet.value = S.metrik; }
 function ciz() {
   const danlar = kapsamDan();
-  ozetCiz(danlar); kpiCiz(danlar); isiCiz(danlar); metrikCiz(danlar); hfCiz(danlar); mermiCiz(danlar); tabloCiz(danlar);
+  ozetCiz(danlar); kpiCiz(danlar);
+  /* yeni bölüm beklenmedik bir veride hata verse bile panonun geri kalanı çizilsin */
+  try { metrikPanoCiz(danlar); } catch (e) { console.error(e); $('mpListe').textContent = 'Metrik grafiği bu veriyle çizilemedi; tablolar aşağıdadır.'; }
+  isiCiz(danlar); metrikCiz(danlar); hfCiz(danlar); mermiCiz(danlar); tabloCiz(danlar);
   durumSakla(); requestAnimationFrame(boyutla);
 }
+$('mpGeri').onclick = () => { S.metrik = ''; senkron(); durumCiz(); ciz(); };
 
 fDonem.onchange = () => { S.donem = fDonem.value; ciz(); };
 fDan.onchange = () => { S.dan = fDan.value; ciz(); };
@@ -1019,6 +1176,7 @@ $('kaputMeta').innerHTML = `<span data-ikon-once="takvim">Son kesinleşen ay: <b
 $('tabloFormul').textContent = `Ort. başarı = Başarılı metrik / (${NMET} − Etkisi Yok) × 100`;
 $('notlar').innerHTML = [
   'Kaynak: Satış Panosu karne kayıtları (satisKarneler), canlı. Yalnız yetkili olduğunuz markanın verisi görüntülenir ve rapora alınır.',
+  'Metrik başarıları: her metrikte seçili dönemin gerçekleşen / hedef toplamı ve gerçekleşme %; danışman seçilince o danışmanın rakamları, metrik seçilince (ya da satıra tıklayınca) aylık dökümü. Eski çalışanlar dahildir. “Excel Dashboard” aynı karne verisini dilimleyicili (Çeyrek · Ay · Danışman · Metrik) bir Excel panosu olarak indirir.',
   `Aylık başarı oranı = "Başarılı" işaretlenen metrik sayısı / (${NMET} metrik − "Etkisi Yok") × 100. Bu orana eşik/renk bandı uygulanmaz; ısı haritasındaki ton yalnız değeri gösterir.`,
   'Metrik başarı % = Gerçekleşen / Hedef × 100 (resmî barem: hedefin %100 ve üzeri Başarılı). Renk: ≥%100 yeşil · %80–99 sarı (hedefe yakın) · <%80 kırmızı — Genel Bakış ile aynı.',
   'Hesaplara yalnız kesinleşen karneler katılır; taslaklar ısı haritasında "Taslak" olarak görünür. Elle girilen araç satış fiilileri dikkate alınır (✎).',
@@ -1339,25 +1497,83 @@ async function raporUret(yalnizKesin) {
   return ad;
 }
 
+/* ================= EXCEL DASHBOARD (dilimleyicili) — 04.11.2026 =================
+   Ekrandaki karnelerin tamamı (yetkili marka · seçili yıl · eski çalışanlar dahil) dilimleyicili bir Excel panosuna
+   yazılır; üretici ayrı modüldür (excel-pano.js, yalnız bu düğmeyle yüklenir). Ekrandaki seçim isteğe bağlı olarak
+   dilimleyicilerde seçili gelir. Rakam kuralları ekranla aynı (yalnız kesinleşen; taslak isteğe bağlı ve ayrı süzülür). */
+const panoDosyaAdi = () => `${MARKA_AD} Performans Dashboard ${YIL}.xlsx`.replace(/[\\/:*?"<>|]/g, '-');
+function panoVerisi(taslakDahil, ekranSecimi) {
+  const satirlar = [];
+  KARNE.forEach(k => {
+    if (k.taslak && !taslakDahil) return;
+    const d = DANI[k.dan];
+    METRIKLER.forEach(mt => { const x = k.m[mt.key] || { d: 'EY', h: null, f: null };
+      satirlar.push({ ay: k.ay, dan: k.dan, eski: !!(d && d.eski), met: mt.key, h: x.h, f: x.f, d: x.d, taslak: !!k.taslak, manuel: !!x.manuel }); });
+  });
+  if (!satirlar.length) throw new Error(taslakDahil ? 'Bu yıl için karne yok.' : 'Kesinleşmiş karne yok — taslakları eklemek için kutuyu işaretleyin.');
+  const secim = { kesin: !!taslakDahil };
+  if (ekranSecimi) {
+    const dn = DNM[S.donem];
+    if (dn.ceyrek) secim.ceyrek = [Number(S.donem.slice(1))];
+    else if (dn.ay) secim.ay = dn.aylar.slice();
+    if (S.dan) secim.dan = [S.dan];
+    if (S.metrik) secim.met = [S.metrik];
+  }
+  const varDan = new Set(satirlar.map(s => s.dan));
+  return {
+    marka: MARKA_AD, yil: YIL, hazir: new Date().toLocaleString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    kaynakNot: taslakDahil ? 'kesinleşen ve taslak karneler (açılışta yalnız kesinleşenler seçili)' : 'yalnız kesinleşen karneler',
+    metrikler: METRIKLER.map(m => ({ key: m.key, ad: m.ad, tip: m.tip })),
+    danlar: DAN.filter(d => varDan.has(d.id)).map(d => ({ ad: d.id, eski: !!d.eski })),
+    aylar: [...new Set(satirlar.map(s => s.ay))].sort((a, b) => a - b),
+    satirlar, secim, taslakVar: satirlar.some(s => s.taslak)
+  };
+}
+async function panoUret(taslakDahil, ekranSecimi) {
+  const G = panoVerisi(taslakDahil, ekranSecimi);
+  const { panoXlsx } = await import('./excel-pano.js?v=1');
+  const { blob, ozet } = await panoXlsx(G);
+  const ad = panoDosyaAdi();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = ad; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+  window.__panoSon = { ad, ozet, G };   /* test ve destek için son üretim özeti (kişisel veri dışarı gönderilmez) */
+  return ad;
+}
+
 const modal = $('raporModal');
-function raporAc() {
-  const donem = DNM[S.donem].ad, dan = S.dan ? DANI[S.dan].ad : 'Tüm danışmanlar';
-  $('raporOzet').innerHTML = '<div><small>Marka</small><b></b></div><div><small>Dönem</small><b></b></div><div><small>Danışman</small><b></b></div>';
-  const bs = $('raporOzet').querySelectorAll('b'); bs[0].textContent = MARKA_AD; bs[1].textContent = donem; bs[2].textContent = dan;
-  $('dosyaAdi').innerHTML = ikon('dosya'); $('dosyaAdi').append(`${MARKA_AD} Satış Danışmanları - Aylık Performans Raporu ${YIL} (${donem.replace(YIL + ' · ', '')}${S.dan ? ' - ' + dan : ''}).xlsx`);
+let raporTur = 'klasik';
+function raporAc(tur) {
+  raporTur = tur === 'pano' ? 'pano' : 'klasik';
+  const pano = raporTur === 'pano', donem = DNM[S.donem].ad, dan = S.dan ? DANI[S.dan].ad : 'Tüm danışmanlar';
+  $('raporBaslik').textContent = pano ? 'Excel Dashboard — dilimleyicili' : 'Danışman / Satış Performans Raporu';
+  $('raporAciklama').textContent = pano ? 'Excel (.xlsx) · etkileşimli pano · yetkili olduğunuz markanın tüm karneleri, eski çalışanlar dahil' : 'Excel (.xlsx) · seçili filtrelerle, yetkili olduğunuz marka için hazırlanır';
+  $('listeKlasik').hidden = pano; $('listePano').hidden = !pano; $('secKlasik').hidden = pano; $('secPano').hidden = !pano;
+  $('raporOzet').innerHTML = '<div><small>Marka</small><b></b></div><div><small></small><b></b></div><div><small></small><b></b></div>';
+  const bs = $('raporOzet').querySelectorAll('b'), sm = $('raporOzet').querySelectorAll('small');
+  bs[0].textContent = MARKA_AD;
+  if (pano) {
+    const ekran = [DNM[S.donem].ceyrek || DNM[S.donem].ay ? donem : null, S.dan ? dan : null, S.metrik ? MET[S.metrik].kisa : null].filter(Boolean);
+    sm[1].textContent = 'Kapsam'; bs[1].textContent = `${YIL} · ${AYV.length} ay · ${DAN.length} danışman`;
+    sm[2].textContent = 'Ekrandaki seçim'; bs[2].textContent = ekran.length ? ekran.join(' · ') : 'yok (tüm veri)';
+  } else { sm[1].textContent = 'Dönem'; bs[1].textContent = donem; sm[2].textContent = 'Danışman'; bs[2].textContent = dan; }
+  $('dosyaAdi').innerHTML = ikon('dosya'); $('dosyaAdi').append(pano ? panoDosyaAdi() : `${MARKA_AD} Satış Danışmanları - Aylık Performans Raporu ${YIL} (${donem.replace(YIL + ' · ', '')}${S.dan ? ' - ' + dan : ''}).xlsx`);
+  ikonYerlestir();
   /* iframe içinde: pencereyi kullanıcının o an gördüğü alana yerleştir */
   try { const r = window.frameElement.getBoundingClientRect(); modal.style.position = 'absolute'; modal.style.inset = 'auto 0 auto 0'; modal.style.top = Math.max(0, -r.top) + 'px'; modal.style.height = UST.innerHeight + 'px'; } catch (e) { }
   modal.classList.add('acik'); modal.setAttribute('aria-hidden', 'false'); $('raporIndir').focus({ preventScroll: true });
 }
-function raporKapat() { modal.classList.remove('acik'); modal.setAttribute('aria-hidden', 'true'); $('raporBtn').focus({ preventScroll: true }); }
-$('raporBtn').onclick = raporAc; $('raporVazgec').onclick = raporKapat;
+function raporKapat() { modal.classList.remove('acik'); modal.setAttribute('aria-hidden', 'true'); $(raporTur === 'pano' ? 'panoBtn' : 'raporBtn').focus({ preventScroll: true }); }
+$('raporBtn').onclick = () => raporAc('klasik'); $('panoBtn').onclick = () => raporAc('pano'); $('raporVazgec').onclick = raporKapat;
 modal.addEventListener('click', e => { if (e.target === modal) raporKapat(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('acik')) raporKapat(); });
 $('raporIndir').onclick = async () => {
   const b = $('raporIndir'); if (b.disabled) return;
   const eski = b.innerHTML; b.disabled = true; b.textContent = 'Hazırlanıyor…';
-  try { const ad = await raporUret($('rYalnizKesin').checked); raporKapat(); bildir('✓ Rapor indirildi: ' + ad); }
-  catch (e) { console.error(e); bildir('Rapor hazırlanamadı: ' + ((e && e.message) || e)); }
+  try {
+    const ad = raporTur === 'pano' ? await panoUret($('pTaslak').checked, $('pEkran').checked) : await raporUret($('rYalnizKesin').checked);
+    raporKapat(); bildir((raporTur === 'pano' ? '✓ Excel Dashboard indirildi: ' : '✓ Rapor indirildi: ') + ad);
+  }
+  catch (e) { console.error(e); bildir((raporTur === 'pano' ? 'Dashboard hazırlanamadı: ' : 'Rapor hazırlanamadı: ') + ((e && e.message) || e)); }
   finally { b.disabled = false; b.innerHTML = eski; }
 };
 

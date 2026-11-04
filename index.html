@@ -3279,14 +3279,14 @@ function perfAdimBilgi(marka){
   return {
     teblig:{durum:AYLAR[ay-1]+' '+yil+' · '+(n?tb+'/'+n+' danışmana tebliğ edildi':'danışmanlara hedef tebliği'),tamam:n>0&&tb>=n},
     karne:{durum:AYLAR[oAy-1]+' '+oYil+' · '+(n?kes+'/'+n+' kesinleşti'+(tas?', '+tas+' taslak':''):'ay sonu karneleri'),tamam:n>0&&kes>=n},
-    performans:{durum:'Filtrele · sırala · Excel raporu indir',tamam:false}
+    performans:{durum:'Metrik başarıları · filtrele · Excel dashboard',tamam:false}
   };
 }
 function kkAdimBandi(aktif,rol,marka,bitisik){
   var A;
   if(rol==='mudur'){var bi=perfAdimBilgi(marka);
     A=[['teblig','Hedef Tebliğ',bi.teblig],['giris','Ay Sonu Karnesi',bi.karne],['dashboard','Performans',bi.performans]];}
-  else A=[['tebligler','Hedef Tebliğleri',{durum:'Tüm markalar · tebliğ takibi'}],['liste','Karneler',{durum:'Tüm markalar · ay sonu karneleri'}],['dashboard','Performans',{durum:'Marka seç · filtrele · Excel raporu'}]];
+  else A=[['tebligler','Hedef Tebliğleri',{durum:'Tüm markalar · tebliğ takibi'}],['liste','Karneler',{durum:'Tüm markalar · ay sonu karneleri'}],['dashboard','Performans',{durum:'Marka seç · metrik başarıları · Excel dashboard'}]];
   var h='<div class="subtabs kk-adimlar'+(rol==='mudur'?'':(SES.rol==='viewer'?' kk-5':' kk-4'))+(bitisik?' kk-bitisik':'')+'">'+A.map(function(x,i){
     var on=aktif===x[0],ok=!!x[2].tamam&&!on;
     return '<button class="subtab karne-sub kk-adim'+(on?' on':'')+(ok?' tamam':'')+'" data-ksub="'+x[0]+'"><span class="kk-no">'+(ok?'✓':(i+1))+'</span><span class="kk-m"><b>'+(i+1)+' · '+esc(x[1])+'</b><small>'+esc(x[2].durum||'')+'</small></span></button>';
@@ -3298,7 +3298,7 @@ function kkAdimBandi(aktif,rol,marka,bitisik){
 function karneDashboardHtml(opts){
   if(karnePerfKlasik)return '<div class="kk-klasik-link kk-sol"><a href="#" id="kkYeniGorunum">← Yeni Performans Panosu’na dön</a></div>'+karneDashboardHtmlKlasik(opts);
   PERF_IMZA=perfImza();
-  return '<iframe id="kkPerf" class="kk-perf" src="performans.html?v=1" title="Performans Panosu"></iframe>'
+  return '<iframe id="kkPerf" class="kk-perf" src="performans.html?v=2" title="Performans Panosu"></iframe>'
     +'<div class="kk-klasik-link"><a href="#" id="kkKlasik">Klasik grafik görünümü</a></div>';
 }
 function karneDashboardHtmlKlasik(opts){
