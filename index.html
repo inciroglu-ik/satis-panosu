@@ -2164,7 +2164,11 @@ function manuelFiiliBul(marka,danisman,yil,ay){
 /* Copilot/Excel'den gelen HAM (override uygulanmamış) fiili — karşılaştırma için. */
 function karneFactAuto(marka,danisman,yil,ay){
   var mn=markaNorm(marka);
-  return ((VERI.factsAuto)||[]).find(function(f){return markaNorm(f.marka)===mn&&f.danisman===danisman&&f.yil===yil&&f.ay===ay;})||null;
+  /* FİLO istisnası: ham Excel verisinde hâlâ "FİLO" olan ama ekranda "fm" markasına alınan satır da eşleşsin; yoksa
+     karne kaydında otomatik fiili bulunamaz ve sahte "✎ elle" kaydı yazılır (denetim bulgusu, 04.11.2026) */
+  return ((VERI.factsAuto)||[]).find(function(f){
+    var m=f.marka==='FİLO'?(filoMarkaIstisnasi(f.danisman)||f.marka):f.marka;
+    return markaNorm(m)===mn&&f.danisman===danisman&&f.yil===yil&&f.ay===ay;})||null;
 }
 /* Copilot kapalı markalarda (Opel, Citroen…) yalnızca elle girilmiş değeri döndürür. */
 function manuelFactOnly(marka,danisman,yil,ay){
@@ -2224,7 +2228,9 @@ function rosterMarkaIstisnasi(d){ return danBilgi(d).rmk||null; }
    yüklenmiş kayıtlar ekranda "fm" markasına alınır (filoIstisnaDuzelt). Kişi adları kaynak kodda tutulmaz. */
 function filoMarkaIstisnasi(d){ var m=danBilgi(d).fm; return m?canonMarka(String(m)):null; }
 function filoIstisnaDuzelt(facts){
-  (facts||[]).forEach(function(f){ if(f.marka!=='FİLO')return; var m=filoMarkaIstisnasi(f.danisman); if(m)f.marka=m; });
+  /* "fm" değeri veride var olan marka yazımına eşlenir ("CITROEN" yazılsa da "Citroen"e düşer, yeni marka doğmaz) */
+  var mevcut={}; (facts||[]).forEach(function(f){ if(f.marka!=='FİLO')mevcut[markaNorm(f.marka)]=f.marka; });
+  (facts||[]).forEach(function(f){ if(f.marka!=='FİLO')return; var m=filoMarkaIstisnasi(f.danisman); if(m)f.marka=mevcut[markaNorm(m)]||m; });
   return facts;
 }
 function bmwPsDuzelt(facts){
@@ -3298,7 +3304,7 @@ function kkAdimBandi(aktif,rol,marka,bitisik){
 function karneDashboardHtml(opts){
   if(karnePerfKlasik)return '<div class="kk-klasik-link kk-sol"><a href="#" id="kkYeniGorunum">← Yeni Performans Panosu’na dön</a></div>'+karneDashboardHtmlKlasik(opts);
   PERF_IMZA=perfImza();
-  return '<iframe id="kkPerf" class="kk-perf" src="performans.html?v=2" title="Performans Panosu"></iframe>'
+  return '<iframe id="kkPerf" class="kk-perf" src="performans.html?v=3" title="Performans Panosu"></iframe>'
     +'<div class="kk-klasik-link"><a href="#" id="kkKlasik">Klasik grafik görünümü</a></div>';
 }
 function karneDashboardHtmlKlasik(opts){

@@ -216,7 +216,7 @@
     .mp-eksen { display: none; }
     .mp-satir { grid-template-columns: minmax(0, 1fr) auto 58px; gap: 6px 10px; padding: 9px 6px; }
     .mp-satir .mp-cubuk-hucre { grid-column: 1 / -1; grid-row: 2; }
-    .mp-deg { display: none; }
+    .mp-deg { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; font-size: 11px; }
     .kpi-satir { gap: 10px; }
     .kpi { padding: 14px 14px 12px; }
     .kpi-deger { font-size: 20px; }
@@ -401,7 +401,7 @@
       <div id="secPano" hidden>
         <label class="secenek"><input type="checkbox" id="pEkran" checked> Ekrandaki seçim (dönem, danışman, metrik) dilimleyicilerde seçili gelsin</label>
         <label class="secenek"><input type="checkbox" id="pTaslak"> Taslak karneleri de ekle (açılışta “Karne Durumu: Kesinleşen” seçili gelir)</label>
-        <p class="kart-not"><span data-ikon="bilgi"></span><span>Rakamlar bu ekrandakiyle aynıdır: yalnız kesinleşen karneler, “Etkisi Yok” aylar hedef/gerçekleşen toplamına dahil. Excel 2013 ve sonrası (Microsoft 365 dahil) gerekir.</span></p>
+        <p class="kart-not"><span data-ikon="bilgi"></span><span>Hedef / gerçekleşen rakamları bu ekrandakiyle aynıdır: yalnız kesinleşen karneler, “Etkisi Yok” aylar toplama dahil. Excel’deki başarı oranı = toplam Başarılı ÷ (Başarılı + Yetersiz). Excel 2013 ve sonrası (Microsoft 365 dahil) gerekir.</span></p>
       </div>
       <div class="dosya-adi" id="dosyaAdi"></div>
     </div>
@@ -1062,7 +1062,8 @@ function tabloCiz(danlar) {
    Başarılı/Yetersiz sayımına hariç · renk ≥%100 / %80–99 / <%80 (Genel Bakış ile aynı) · eski çalışanlar dahil. */
 function mpTopla(ks, key) {
   const o = { h: 0, f: 0, n: 0, B: 0, Y: 0, EY: 0, man: false, karne: ks.length, say: MET[key].tip === 'sayi' };
-  ks.forEach(k => { const x = k.m[key]; if (!x) return; if (sayisal(x)) { o.h += x.h; o.f += x.f; o.n++; if (x.manuel) o.man = true; } o[x.d] = (o[x.d] || 0) + 1; });
+  /* hedef ve gerçekleşen ikisi de geçerli sayıysa toplanır (bozuk/NaN değer toplamı bozmasın; Excel ile aynı) */
+  ks.forEach(k => { const x = k.m[key]; if (!x) return; if (Number.isFinite(x.h) && Number.isFinite(x.f)) { o.h += x.h; o.f += x.f; o.n++; if (x.manuel) o.man = true; } o[x.d] = (o[x.d] || 0) + 1; });
   o.oran = o.say ? (o.h > 0 ? o.f / o.h * 100 : null) : ((o.B + o.Y) ? o.B / (o.B + o.Y) * 100 : null);
   return o;
 }
@@ -1140,7 +1141,7 @@ function mpSatir(s, ust, centik, i) {
   b.addEventListener('pointermove', e => ipucuGoster(e.clientX, e.clientY, { baslik: `${s.ad} · ${DNM[S.donem].ad}`, satirlar }));
   b.addEventListener('pointerleave', ipucuGizle);
   b.setAttribute('aria-label', `${s.ad}: ${o.say ? (o.n ? `gerçekleşen ${mpAdet(o.f)}, hedef ${mpAdet(o.h)}` : 'rakam girilmemiş') : `${o.B} başarılı, ${o.Y} yetersiz`}, ${o.oran === null ? 'oran yok' : yuzde(o.oran)}`);
-  if (s.tik && s.key) b.onclick = () => { ipucuGizle(); S.metrik = s.key; senkron(); durumCiz(); ciz(); try { $('mpKart').scrollIntoView({ block: 'nearest' }); } catch (e) { } };
+  if (s.tik && s.key) b.onclick = () => { ipucuGizle(); S.metrik = s.key; senkron(); durumCiz(); ciz(); try { $('mpKart').scrollIntoView({ block: 'nearest' }); $('mpGeri').focus({ preventScroll: true }); } catch (e) { } };
   return b;
 }
 
@@ -1153,7 +1154,7 @@ function ciz() {
   isiCiz(danlar); metrikCiz(danlar); hfCiz(danlar); mermiCiz(danlar); tabloCiz(danlar);
   durumSakla(); requestAnimationFrame(boyutla);
 }
-$('mpGeri').onclick = () => { S.metrik = ''; senkron(); durumCiz(); ciz(); };
+$('mpGeri').onclick = () => { S.metrik = ''; senkron(); durumCiz(); ciz(); const ilkSatir = document.querySelector('#mpListe button.mp-satir'); if (ilkSatir) ilkSatir.focus({ preventScroll: true }); };
 
 fDonem.onchange = () => { S.donem = fDonem.value; ciz(); };
 fDan.onchange = () => { S.dan = fDan.value; ciz(); };
@@ -1531,13 +1532,13 @@ function panoVerisi(taslakDahil, ekranSecimi) {
 }
 async function panoUret(taslakDahil, ekranSecimi) {
   const G = panoVerisi(taslakDahil, ekranSecimi);
-  const { panoXlsx } = await import('./excel-pano.js?v=1');
+  const { panoXlsx } = await import('./excel-pano.js?v=2');
   const { blob, ozet } = await panoXlsx(G);
   const ad = panoDosyaAdi();
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = ad; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
   window.__panoSon = { ad, ozet, G };   /* test ve destek için son üretim özeti (kişisel veri dışarı gönderilmez) */
-  return ad;
+  return ad + (ozet.karneDustu ? ' — kesinleşmiş karne yok, dosya taslak karnelerle açılır' : ozet.ekranDustu ? ' — ekrandaki seçimde veri yok, dosya tüm veriyle açılır' : '');
 }
 
 const modal = $('raporModal');

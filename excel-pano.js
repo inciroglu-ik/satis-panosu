@@ -297,10 +297,12 @@ export async function panoXlsx(G) {
   if (SH.kesin && G.taslakVar) ekle(karneSec, 'Karne Durumu', ['Kesinleşen']);
   const gorunurMu = (v, sec) => Object.entries(sec).every(([kol, set]) => set.has(String(v[KOLON[KI[kol]][1]])));
   /* Seçimle hiç satır kalmıyorsa önce ekran seçimi, sonra karne durumu bırakılır (dosya boş açılmasın) */
-  let secim = Object.assign({}, ekran, karneSec);
-  if (!V.some(v => gorunurMu(v, secim))) secim = Object.assign({}, karneSec);
-  if (!V.some(v => gorunurMu(v, secim))) secim = {};
+  let secim = Object.assign({}, ekran, karneSec), ekranDustu = false, karneDustu = false;
+  if (!V.some(v => gorunurMu(v, secim))) { ekranDustu = Object.keys(ekran).length > 0; secim = Object.assign({}, karneSec); }
+  if (!V.some(v => gorunurMu(v, secim))) { karneDustu = Object.keys(karneSec).length > 0; secim = {}; }
   V.forEach(v => { v.gor = gorunurMu(v, secim) ? 1 : 0; });
+  /* Kesinleşmiş karne hiç yoksa dosya bunu açıkça söyler (denetim bulgusu: "yalnız kesinleşenler seçili" yazıp taslak gösteriyordu) */
+  const KNOT = karneDustu ? 'kesinleşmiş karne yok — taslak karneler gösteriliyor' : G.kaynakNot;
   const GV = V.filter(v => v.gor);
 
   /* ---- Önbellek değerleri (Excel formüllerinin açılıştaki karşılığı) ---- */
@@ -368,7 +370,7 @@ export async function panoXlsx(G) {
   const tr = n => `Veri[[#This Row],[${n}]]`;
   const F_ORAN = `IF(AND(ISNUMBER(${tr('Hedef')}),ISNUMBER(${tr('Gerçekleşen')})),IF(${tr('Hedef')}>0,${tr('Gerçekleşen')}/${tr('Hedef')},""),"")`;
   const F_HF = `IF(AND(ISNUMBER(${tr('Hedef')}),ISNUMBER(${tr('Gerçekleşen')})),1,0)`;
-  const F_GOR = `SUBTOTAL(103,${tr('Danışman')})`;
+  const F_GOR = `SUBTOTAL(103,${tr('Yıl')})`;   /* her satırda dolu sütun */
   V.forEach((v, i) => {
     const r = T0 + 1 + i;
     W2.sayi(0, r, v.yil); W2.metin(1, r, v.ceyrek); W2.metin(2, r, v.ay); W2.sayi(3, r, v.ayNo); W2.metin(4, r, v.dan); W2.metin(5, r, v.calisan);
@@ -410,7 +412,7 @@ export async function panoXlsx(G) {
   /* Başlık bandı + seçim satırı */
   for (let c = 1; c <= O0; c++) { W.bos(c, 2, S.bant); W.bos(c, 3, S.bant); }
   W.metin(1, 2, `${G.marka} · Performans Metrik Panosu · ${G.yil}`, S.baslik); W.birlestir(1, 2, O0, 2, S.baslik);
-  W.metin(1, 3, `Kaynak: karnelere girilen hedef ve gerçekleşenler · ${G.kaynakNot} · Hazırlanma: ${G.hazir} · Yalnız yetkili olduğunuz markanın verisi`, S.alt); W.birlestir(1, 3, O0, 3, S.alt);
+  W.metin(1, 3, `Kaynak: karnelere girilen hedef ve gerçekleşenler · ${KNOT} · Hazırlanma: ${G.hazir} · Yalnız yetkili olduğunuz markanın verisi`, S.alt); W.birlestir(1, 3, O0, 3, S.alt);
 
   /* ---- Tablo yerleşimi ---- */
   const MT_B = 48, MT_H = 49, MT0 = 50, MT1 = MT0 + METS.length - 1, MT_T = MT1 + 1;
@@ -585,7 +587,7 @@ export async function panoXlsx(G) {
 
   /* ---- Notlar ---- */
   const notlar = [
-    `Kaynak: Satış Panosu karne kayıtları — karnelere girilen hedef ve gerçekleşenler (${G.hazir} itibarıyla). Yalnız yetkili olduğunuz markanın verisi; ${G.kaynakNot}.`,
+    `Kaynak: Satış Panosu karne kayıtları — karnelere girilen hedef ve gerçekleşenler (${G.hazir} itibarıyla). Yalnız yetkili olduğunuz markanın verisi; ${KNOT}.`,
     `Dilimleyiciler (solda): Çeyrek, Ay, Danışman, Metrik, Çalışan Durumu${G.taslakVar ? ', Karne Durumu' : ''}. Birden çok seçim için Ctrl tuşuyla tıklayın; tümüne dönmek için dilimleyicinin sağ üstündeki filtre temizleme simgesine basın. Göstergeler, grafikler ve tablolar seçime göre anında değişir.`,
     'Gerçekleşme = Gerçekleşen ÷ Hedef (yalnız hedefi ve gerçekleşeni birlikte girilmiş karneler). Renk: ≥ %100 yeşil (hedefte) · %80–99 sarı (hedefe yakın) · < %80 kırmızı — Satış Panosu ile aynı bantlar.',
     '“Etkisi Yok” işaretli aylar hedef / gerçekleşen toplamlarına DAHİLDİR, Başarılı / Yetersiz sayımına katılmaz. Başarı oranı = Başarılı ÷ (Başarılı + Yetersiz).',
@@ -729,6 +731,6 @@ export async function panoXlsx(G) {
   /* Test/doğrulama için açılıştaki (önbellek) değerler */
   const ozet = { kayit: V.length, gorunur: GV.length, gos, tekMetrik, metrik: metHes.map(x => ({ key: x.m.key, kisa: x.m.kisa, h: x.h, f: x.f, oran: x.oran, B: x.B, Y: x.Y, EY: x.EY, kayit: x.kayit })),
     ay: ayHes.map(x => ({ a: x.a, h: x.h, f: x.f, B: x.B, Y: x.Y, EY: x.EY, kayit: x.kayit })), dan: danHes.map(x => ({ ad: x.d.ad, h: x.h, f: x.f, B: x.B, Y: x.Y, EY: x.EY, kayit: x.kayit })),
-    satir: { MT0, MT1, MT_T, AY0, AY1, AY_T, DN0, DN1, NT_B }, dilim: DILIM.map(d => d.baslik), secim: Object.fromEntries(Object.entries(secim).map(([k, s]) => [k, [...s]])) };
+    ekranDustu, karneDustu, satir: { MT0, MT1, MT_T, AY0, AY1, AY_T, DN0, DN1, NT_B }, dilim: DILIM.map(d => d.baslik), secim: Object.fromEntries(Object.entries(secim).map(([k, s]) => [k, [...s]])) };
   return { blob, ozet };
 }
