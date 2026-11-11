@@ -2069,8 +2069,14 @@ function karneRoster(marka){
   (WORK.eskiCalisanlar||[]).forEach(function(e){ if(markaEslesir(e.marka,marka))set.add(e.danisman); });
   /* Excel'in Fiili sayfası o ay hiç satışı olmayan danışmanı içermediği için
      bazı aktif danışmanlar facts'te HİÇ görünmeyebilir — müdürün "Listede
-     Olmayan Danışman Ekle" ile elle eklediği isimler burada tamamlanır. */
-  (WORK.manuelDanismanlar||[]).forEach(function(e){ if(markaEslesir(e.marka,marka))set.add(e.danisman); });
+     Olmayan Danışman Ekle" ile elle eklediği isimler burada tamamlanır.
+     Roster marka istisnası (rmk) olan danışman YALNIZ o markanın listesinde olur: başka markaya
+     eskiden elle eklenmiş kaydı onu ikinci markaya taşımaz (11.11.2026 — MINI danışmanı, Copilot'ta
+     tekil BMW satışı + eski elle ekleme yüzünden BMW tebliğ/karne listesinde de görünüyordu). */
+  (WORK.manuelDanismanlar||[]).forEach(function(e){
+    if(rmkBaskaMarka(marka,e.danisman))return;
+    if(markaEslesir(e.marka,marka))set.add(e.danisman);
+  });
   return [...set].sort((a,b)=>a.localeCompare(b,'tr'));
 }
 /* Bir danışman, seçilen marka için, verilen yıl/ay VEYA sonrası için "eski
@@ -2131,7 +2137,8 @@ function eskiCalisanYonetimHtml(marka,idPrefix){
       +esc(e.danisman)+' — '+AYLAR[e.ay-1]+' '+e.yil+'\'den itibaren eski çalışan'
       +'<button type="button" data-eskisil="'+esc(e.marka)+'|'+esc(e.danisman)+'" title="İşareti kaldır" style="background:none;border:none;color:#fff;cursor:pointer;font-weight:700;font-size:13px;line-height:1">×</button></span>';
   }).join('');
-  var manuel=(WORK.manuelDanismanlar||[]).filter(function(e){return esl(e.marka,marka);});
+  /* Roster marka istisnası başka markayı gösteren danışmanın eski elle eklemesi listeye etkisizdir (bkz. karneRoster) → burada da gösterilmez */
+  var manuel=(WORK.manuelDanismanlar||[]).filter(function(e){return esl(e.marka,marka)&&!rmkBaskaMarka(marka,e.danisman);});
   var manuelRows=manuel.map(function(e){
     return '<span class="k-badge" style="background:var(--ok);color:#fff;margin:3px 6px 0 0;display:inline-flex;align-items:center;gap:6px">'
       +esc(e.danisman)+' — elle eklendi'
@@ -2222,6 +2229,8 @@ function satisDanismaniUnvaniMi(u){var k=unvanKatla(u);return k===unvanKatla('Sa
    roster eşleşmesini etkiler; satış/analiz/karne verisine dokunmaz. */
 function borusanNextMi(d){ return danBilgi(d).bn===1; }
 function rosterMarkaIstisnasi(d){ return danBilgi(d).rmk||null; }
+/* rmk başka markayı gösteriyorsa o markayı döner (danışman bu markanın listesine girmez), yoksa null */
+function rmkBaskaMarka(marka,d){ var ist=rosterMarkaIstisnasi(d); if(!ist)return null; return (ist===marka||markaAd(ist)===markaAd(marka)||markaNorm(ist)===markaNorm(marka))?null:ist; }
 /* FİLO istisnası (04.11.2026, kullanıcı isteği): danışman bilgisinde "fm" (marka) işareti olan danışman Kolay İK'da
    FİLO departmanına geçmiş olsa da satışları, hedefleri ve ekip listeleri eski markasında — hâlâ orada çalışıyormuş
    gibi — görünür. Excel okunurken satır Plaza'daki markasında kalır (factsFromHedefFiili); daha önce FİLO olarak
@@ -3556,6 +3565,7 @@ function bindKarneDynamic(){
     var ad=prompt('Listede görünmeyen ama aktif olan danışmanın adını yazın:');
     if(!ad||!ad.trim())return;
     var adN=trTitle(ad.trim());
+    var _ist=rmkBaskaMarka(marka,adN); if(_ist){toast('⚠ "'+adN+'" İK tarafından '+markaAd(_ist)+' ekibine tanımlı (Danışman Bilgisi); bu listeye eklenmez.');return;}
     manuelDanismanEkle(marka,adN);
     toast('✓ "'+adN+'" listeye eklendi.');
     render();
@@ -3566,6 +3576,7 @@ function bindKarneDynamic(){
     var ad=prompt('Listede görünmeyen ama aktif olan danışmanın adını yazın:');
     if(!ad||!ad.trim())return;
     var adN=trTitle(ad.trim());
+    var _ist=rmkBaskaMarka(marka,adN); if(_ist){toast('⚠ "'+adN+'" İK tarafından '+markaAd(_ist)+' ekibine tanımlı (Danışman Bilgisi); bu listeye eklenmez.');return;}
     manuelDanismanEkle(marka,adN);
     toast('✓ "'+adN+'" listeye eklendi.');
     render();
