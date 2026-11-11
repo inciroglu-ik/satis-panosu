@@ -3691,23 +3691,30 @@ function adminKullanici(){
     +'Satış müdürüne <b>Satış Müdürü</b> rolü ve <b>satış markası</b> verilir (birden fazlaysa virgülle, örn. <i>BMW,MINI</i>); direktörler görüntüleyici olarak girer. '
     +'Şifreleri kimse göremez; unutulursa İK yeni aktivasyon kodu üretir.</div></div>';
 }
+/* Yükleme sonucu mesajı: kayıttan sonra sayfa yeniden çizildiği (render + canlı veri güncellemesi) için
+   mesaj DOM'da değil burada tutulur; yoksa "kaydedildi" yazısı anında silinir (11.11.2026 kullanıcı bildirimi). */
+var DB_MESAJ='';
+function dbMesaj(html){ DB_MESAJ=html; var m=document.getElementById('dbMsg'); if(m)m.innerHTML=html; }
 function adminDanisman(){
   var m=(VERI&&VERI.danismanBilgi)||{}, n=Object.keys(m).length;
+  var say=function(a){return Object.keys(m).filter(function(d){return m[d]&&m[d][a];}).length;};
   return '<div class="card"><h3>Danışman Bilgisi (işe giriş / çıkış)</h3>'
     +'<div class="note">Danışman Analizi\'ndeki işe giriş tarihi, çıkış tarihi ve ayrılış notu bu bilgiden gelir. Kişisel veri içerdiği için kaynak kodda tutulmaz; '
     +'yalnız yetkililerin erişebildiği veritabanında saklanır. İK\'nın hazırladığı <b>satis_danisman_bilgi.json</b> dosyasını buradan yükleyin.</div>'
-    +'<div style="font-size:13px;margin:8px 0 14px">Kayıtlı danışman sayısı: <b>'+n+'</b></div>'
+    +'<div style="font-size:13px;margin:8px 0 14px">Kayıtlı danışman sayısı: <b>'+n+'</b>'
+    +' · BORUSAN-NEXT işareti: <b>'+say('bn')+'</b> · Ekip (marka) istisnası: <b>'+say('rmk')+'</b> · FİLO istisnası: <b>'+say('fm')+'</b></div>'
     +'<input type="file" id="dbDosya" accept=".json,application/json" style="display:none">'
-    +'<button class="btn gold" id="dbYukle">⬆ Danışman bilgisi dosyası yükle</button><div id="dbMsg"></div></div>';
+    +'<button class="btn gold" id="dbYukle">⬆ Danışman bilgisi dosyası yükle</button><div id="dbMsg">'+DB_MESAJ+'</div></div>';
 }
 function danismanBilgiYukle(f){
-  var msg=document.getElementById('dbMsg');
-  if(!SES||SES.rol!=='admin')return;
+  var msg={set innerHTML(h){dbMesaj(h);}};
+  if(!SES||SES.rol!=='admin'){toast('⚠ Danışman bilgisi yalnız İK hesabıyla yüklenebilir.');return;}
   if(f.size>300*1024){if(msg)msg.innerHTML='<div class="err-msg">Dosya çok büyük.</div>';return;}
   f.text().then(function(t){
     var o=null; try{o=JSON.parse(t);}catch(_){}
     if(!o||o.tur!=='inciroglu-satis-danisman'||!o.veri||typeof o.veri!=='object'){if(msg)msg.innerHTML='<div class="err-msg">Bu dosya bir danışman bilgisi dosyası değil.</div>';return;}
     if(!window.SatisFB||!window.SatisFB.pushDanismanBilgi){if(msg)msg.innerHTML='<div class="err-msg">Veritabanı bağlantısı yok.</div>';return;}
+    msg.innerHTML='<div class="note">Kaydediliyor…</div>';
     /* İşaretler herkese (karne hesabı), tarih ve ayrılış notu yalnız İK/direktöre (bkz. danBilgi) */
     var ozet={}, detay={};
     Object.keys(o.veri).forEach(function(ad){
@@ -3718,10 +3725,12 @@ function danismanBilgiYukle(f){
     window.SatisFB.pushDanismanBilgi(ozet,detay).then(function(){
       VERI.danismanBilgi=ozet; VERI.danismanDetay=detay;
       fiiliUygula(); buildDims();   /* bayraklar (fm/bn) veriye hemen uygulansın */
-      if(msg)msg.innerHTML='<div class="ok-msg">✓ '+Object.keys(o.veri).length+' danışmanın bilgisi kaydedildi.</div>';
+      var saat=new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+      if(msg)msg.innerHTML='<div class="ok-msg">✓ '+Object.keys(o.veri).length+' danışmanın bilgisi kaydedildi (saat '+saat+'). Müdürler sayfayı yenileyince yeni listeyi görür.</div>';
+      toast('✓ Danışman bilgisi kaydedildi.');
       render();
-    }).catch(function(e){if(msg)msg.innerHTML='<div class="err-msg">Kaydedilemedi: '+esc((e&&e.message)||'')+'</div>';});
-  });
+    }).catch(function(e){if(msg)msg.innerHTML='<div class="err-msg">Kaydedilemedi: '+esc((e&&e.message)||'')+'</div>';toast('⚠ Danışman bilgisi kaydedilemedi.');});
+  }).catch(function(){ msg.innerHTML='<div class="err-msg">Dosya okunamadı.</div>'; });
 }
 /* ==================== DİNAMİK BAĞLAMALAR ==================== */
 function bindDynamic(){

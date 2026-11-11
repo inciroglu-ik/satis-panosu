@@ -1,4 +1,4 @@
-const CACHE = 'satis-panosu-v15';
+const CACHE = 'satis-panosu-v16';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo.png'];
 
 self.addEventListener('install', (e) => {
