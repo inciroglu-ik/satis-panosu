@@ -465,6 +465,35 @@ td.name{font-weight:600}
 .card select{padding:6px 10px;min-height:34px}
 .card textarea{padding:10px 12px}
 .card select:focus,.card textarea:focus,.card input:focus{outline:2px solid rgba(185,139,55,.55);border-color:var(--accent)}
+/* Çok markalı satış müdürü (24.11.2026): girişte büyük marka seçim ekranı + her müdür ekranının üstünde büyük geçiş düğmeleri */
+.mm-secim{max-width:900px;margin:34px auto 12px;text-align:center}
+.mm-hos{font-size:12.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.mm-secim h2{font-family:var(--kk-serif);font-size:28px;line-height:1.25;color:var(--ink);margin:8px 0 8px;font-weight:600}
+.mm-acik{color:var(--ink-2);font-size:14px;line-height:1.6;margin:0 auto 28px;max-width:620px}
+.mm-izgara{display:grid;gap:22px}
+.mm-kart{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:230px;padding:26px 20px;border:0;border-radius:22px;
+  background:var(--kk-kokpit);color:#fff;cursor:pointer;font-family:inherit;box-shadow:inset 0 -4px 0 #b98b37,0 18px 36px -18px rgba(10,24,44,.55);transition:transform .18s,box-shadow .18s}
+.mm-kart b{font-size:44px;letter-spacing:.07em;font-weight:800;line-height:1}
+.mm-kart span{font-size:14px;color:#c3d0e4}
+.mm-kart em{font-style:normal;font-size:13px;font-weight:600;color:#1d1405;background:var(--kk-pirinc);border-radius:999px;padding:7px 16px;margin-top:6px}
+.mm-kart:hover{transform:translateY(-3px);box-shadow:inset 0 -4px 0 #cfa75a,0 24px 40px -18px rgba(10,24,44,.6)}
+.mm-kart:focus-visible,.mm-btn:focus-visible{outline:3px solid var(--accent-2);outline-offset:3px}
+.mm-serit{display:grid;gap:12px;margin:0 0 16px}
+.mm-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:78px;padding:12px 14px;border-radius:16px;cursor:pointer;
+  font-family:inherit;background:var(--surface);color:var(--ink);border:2px solid var(--line);transition:border-color .18s,background .18s,transform .18s}
+.mm-btn b{font-size:24px;letter-spacing:.07em;font-weight:800;line-height:1.1}
+.mm-btn small{font-size:12px;color:var(--muted);font-weight:500}
+.mm-btn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.mm-btn.on{background:var(--kk-kokpit);color:#fff;border-color:transparent;box-shadow:inset 0 -4px 0 #b98b37;cursor:default;transform:none}
+.mm-btn.on small{color:#e0c38a;font-weight:600}
+@media (max-width:640px){
+  .mm-secim{margin-top:18px}.mm-secim h2{font-size:22px}
+  .mm-izgara{grid-template-columns:1fr!important;gap:14px}
+  .mm-kart{min-height:150px}.mm-kart b{font-size:34px}
+  .mm-serit{grid-template-columns:repeat(2,minmax(0,1fr))!important} /* 3+ markada telefonda iki sütuna kırılır */
+  .mm-btn{min-height:66px;padding:10px 8px}.mm-btn b{font-size:18px}.mm-btn small{font-size:11px}
+}
+@media (prefers-reduced-motion:reduce){.mm-kart,.mm-btn{transition:none}.mm-kart:hover,.mm-btn:hover{transform:none}}
 </style>
 <style>
 /* ===== Karne akışı: adım şeridi + yeni Performans Panosu (lacivert / pirinç) ===== */
@@ -1249,9 +1278,9 @@ var BUAY_MARKA=null;              /* müdür "Bu Ay" ekranında seçili marka */
 var KARNE_FORM_IMZA=null;
 function karneFormImza(){var v=document.getElementById('view');if(!v)return '';
   return [...v.querySelectorAll('input,select,textarea')].map(function(e){return (e.type==='checkbox'||e.type==='radio')?(e.checked?'1':'0'):String(e.value==null?'':e.value);}).join('\u0001');}
-function karneCikisOnay(){
+function karneCikisOnay(neden){
   if(TAB!=='karne'||KARNE_FORM_IMZA===null||karneFormImza()===KARNE_FORM_IMZA)return true;
-  return confirm('Karne / tebliğ formunda kaydedilmemiş değişiklikler var. Sekmeyi değiştirirseniz girdikleriniz kaybolur.\n\nYine de geçilsin mi?');
+  return confirm('Karne / tebliğ formunda kaydedilmemiş değişiklikler var. '+(neden==='marka'?'Markayı':'Sekmeyi')+' değiştirirseniz girdikleriniz kaybolur.\n\nYine de geçilsin mi?');
 }
 function ayGunSayisi(y,a){return new Date(y,a,0).getDate();}
 function buAyBilgi(){var d=new Date();return {yil:d.getFullYear(),ay:d.getMonth()+1,gun:d.getDate()};}
@@ -1473,11 +1502,9 @@ function buAyCumle(list,devam,eksikSay){
 function viewBuAy(){
   var markaList=perfYetkiliMarkalar();
   if(!markaList.length)return '<div class="empty">Hesabınıza bir marka atanmamış. Lütfen İK/Yönetici ile görüşün.</div>';
-  if(!BUAY_MARKA||markaList.indexOf(BUAY_MARKA)<0)BUAY_MARKA=markaList[0];
-  var marka=BUAY_MARKA;
+  var marka=mudurAktifMarka(markaList);   /* Bu Ay + Karne + Performans tek marka seçimi (bkz. mudurMarkaSec) */
   var eslesir=function(a,b){return a===b||markaAd(a)===markaAd(b)||markaNorm(a)===markaNorm(b);};
-  var secici=markaList.length>1?'<div class="chips" style="margin:0 0 14px">'+markaList.map(function(m){
-      return '<span class="chip q'+(m===marka?' on':'')+'" data-buaymarka="'+esc(m)+'" role="button" tabindex="0">'+esc(markaAd(m))+'</span>';}).join('')+'</div>':'';
+  var secici=mudurMarkaSeritHtml(marka);  /* tek markalı müdürde boş */
   var tum=(VERI.facts||[]).filter(function(r){return eslesir(r.marka,marka);});
   if(!tum.length)return secici+'<div class="empty">'+esc(markaAd(marka))+' için henüz Copilot satış verisi yok.</div>';
   /* Bu ayın Copilot verisi HERHANGİ bir markada yüklüyse ay "devam ediyor" sayılır; bu markada satır yoksa ekip "satış yok" görünür.
@@ -1538,6 +1565,58 @@ function viewBuAy(){
     +'<div class="kk-klasik-link kk-sol"><a href="javascript:void(0)" id="buAyKarne">Hedef Tebliğ ve Karne ekranına git →</a></div>';
 }
 
+/* ===== Çok markalı satış müdürü (24.11.2026, kullanıcı isteği) =====
+   Vekâleten ikinci bir markayı da yöneten müdür TEK kullanıcı adı/şifreyle iki markanın panelini kullanır. Hesaptaki satış
+   markaları (İK Sistemi → Kullanıcı Hesapları → "Satış markaları", virgülle, ör. "CITROEN,PEUGEOT") birden fazlaysa:
+   girişte büyük düğmeli marka seçim ekranı, sonra Bu Ay / Hedef Tebliğ / Ay Sonu Karnesi / Performans ekranlarının üstünde
+   büyük geçiş düğmeleri. Seçim TEK yerde tutulur (BUAY_MARKA = karneMudurMarkaSec). Yetki DEĞİŞMEZ: müdür yine yalnız
+   hesabındaki markaları görür (perfYetkiliMarkalar); tek markalı müdürün ekranı aynen kalır. Veri yazmaz. */
+var MUDUR_MARKA_SECILDI=false;
+function mudurMarkalari(){return (SES&&SES.rol==='mudur')?perfYetkiliMarkalar():[];}
+function mudurCokMarka(){return mudurMarkalari().length>1;}
+function mudurAktifMarka(list){
+  var m=karneMudurMarkaSec;
+  if(!m||list.indexOf(m)<0)m=(BUAY_MARKA&&list.indexOf(BUAY_MARKA)>=0)?BUAY_MARKA:list[0];
+  karneMudurMarkaSec=m; BUAY_MARKA=m; return m;
+}
+/* Marka adları Latin harflidir: Türkçe büyütme "Citroen"i "CİTROEN", "Mini"yi "MİNİ" yapardı → dil bağımsız büyütme */
+function mudurMarkaBuyukAd(m){return String(markaAd(m)||m).toUpperCase();}
+function mudurMarkaSec(m){
+  var list=mudurMarkalari(); if(list.indexOf(m)<0)return;
+  if(MUDUR_MARKA_SECILDI&&m===karneMudurMarkaSec)return;          /* zaten bu markada */
+  if(MUDUR_MARKA_SECILDI&&!karneCikisOnay('marka'))return;         /* kaydedilmemiş karne/tebliğ koruması */
+  karneMudurMarkaSec=m; BUAY_MARKA=m; karneSel.dan=null; tebligSel.dan=null; karneDashFlt.danisman=''; /* önceki markanın danışman seçimleri taşınmaz */
+  window.__perfDurum=null; PERF_IMZA='';                             /* Performans Panosu yeni markayla yeniden açılsın */
+  MUDUR_MARKA_SECILDI=true;
+  render(); try{window.scrollTo({top:0,behavior:'smooth'});}catch(_){}
+}
+/* Performans Panosu'nun kendi marka seçicisinden geçilirse üstteki düğmeler de aynı markayı göstersin */
+function mudurSeritIsaretle(m){
+  document.querySelectorAll('.mm-btn[data-mmsec]').forEach(function(b){var on=b.dataset.mmsec===m;
+    b.classList.toggle('on',on); b.setAttribute('aria-pressed',on?'true':'false');
+    var s=b.querySelector('small'); if(s)s.textContent=on?'✓ Şu an bu markadasınız':'Geçmek için tıklayın →';});
+}
+function mudurMarkaSeritHtml(aktif){
+  var list=mudurMarkalari(); if(list.length<2)return '';
+  return '<div class="mm-serit" role="group" aria-label="Marka geçişi" style="grid-template-columns:repeat('+list.length+',minmax(0,1fr))">'
+    +list.map(function(m){var on=m===aktif;
+      return '<button type="button" class="mm-btn'+(on?' on':'')+'" data-mmsec="'+esc(m)+'" aria-pressed="'+(on?'true':'false')+'">'
+        +'<b>'+esc(mudurMarkaBuyukAd(m))+'</b><small>'+(on?'✓ Şu an bu markadasınız':'Geçmek için tıklayın →')+'</small></button>';}).join('')
+    +'</div>';
+}
+function mudurMarkaSecimHtml(){
+  var list=mudurMarkalari(), ad=SES.ad?trTitle(String(SES.ad)):'';
+  return '<div class="mm-secim"><div class="mm-hos">Hoş geldiniz'+(ad?', '+esc(ad):'')+'</div>'
+    +'<h2>Hangi markanın panelinde çalışmak istiyorsunuz?</h2>'
+    +'<p class="mm-acik">Hesabınız '+list.length+' markadan sorumlu. Seçtiğiniz markanın danışmanlarını, hedef tebliğlerini ve karnelerini görürsünüz; '
+    +'diğer markaya istediğiniz an sayfanın üstündeki büyük düğmelerle geçebilirsiniz.</p>'
+    +'<div class="mm-izgara" style="grid-template-columns:repeat('+Math.min(list.length,3)+',minmax(0,1fr))">'
+    +list.map(function(m){
+      return '<button type="button" class="mm-kart" data-mmsec="'+esc(m)+'"><b>'+esc(mudurMarkaBuyukAd(m))+'</b>'
+        +'<span>Hedef tebliğ · Ay sonu karnesi · Performans</span><em>Panele gir →</em></button>';}).join('')
+    +'</div></div>';
+}
+
 /* ==================== TABS ==================== */
 function buildTabs(){
   var tabs;
@@ -1580,6 +1659,7 @@ function render(){
   v.classList.add('fading');
   setTimeout(function(){
     if(!rows.length&&TAB!=='yonetim'&&TAB!=='karne'&&TAB!=='buay'){v.innerHTML='<div class="empty">'+(kv?genelKarneBos(kv):'Seçili filtrelerle veri yok. Üstteki filtreleri genişletin.')+'</div>';}
+    else if((TAB==='buay'||TAB==='karne')&&mudurCokMarka()&&!MUDUR_MARKA_SECILDI)v.innerHTML=mudurMarkaSecimHtml(); /* çok markalı müdür: önce marka seçimi */
     else if(TAB==='buay')v.innerHTML=viewBuAy();
     else if(TAB==='genel')v.innerHTML=viewGenel(rows,effMarkalar,kv);
     else if(TAB==='marka')v.innerHTML=viewMarka(rows);
@@ -3061,19 +3141,15 @@ function viewKarneMudur(){
   var markaRaw=SES.marka; /* hesaptaki satış markası/markaları (İK Sistemi → Kullanıcı Hesapları) */
   if(!markaRaw)return kkAdimBandi(karneMudurSub,'mudur',null,false)+'<div class="empty">Hesabınıza bir marka atanmamış. Lütfen İK/Yönetici ile görüşün.</div>';
   /* Bir müdür birden fazla markadan sorumlu olabilir (örn. "ARJ,FIAT") */
-  var markaList=(''+markaRaw).split(',').map(function(s){return markaKanonik(s.trim());}).filter(Boolean);
-  if(!karneMudurMarkaSec||markaList.indexOf(karneMudurMarkaSec)<0)karneMudurMarkaSec=markaList[0];
-  var marka=karneMudurMarkaSec;
+  var markaList=perfYetkiliMarkalar();    /* hesaptaki markalar (tekrarlar ayıklanmış) — Bu Ay ve Performans ile aynı liste */
+  var marka=mudurAktifMarka(markaList);   /* Bu Ay + Karne + Performans tek marka seçimi (bkz. mudurMarkaSec) */
+  /* Çok markalı müdürde büyük geçiş düğmeleri her alt ekranın (Tebliğ / Karne / Performans) en üstünde; tek markalıda boş */
+  var markaSecici=mudurMarkaSeritHtml(marka);
   var sub=kkAdimBandi(karneMudurSub,'mudur',marka,perfAcik);
-  if(perfAcik)return sub+karneDashboardHtml({marka:marka,isAdmin:false});
-  var markaSecici=markaList.length>1
-    ?('<div class="chips" style="margin:0 0 14px">'+markaList.map(function(m){
-        return '<span class="chip q'+(m===marka?' on':'')+'" data-mudurmarka="'+esc(m)+'">'+esc(markaAd(m))+'</span>';
-      }).join('')+'</div>')
-    :'';
-  if(karneMudurSub==='dashboard')return sub+markaSecici+karneDashboardHtml({marka:marka,isAdmin:false});
-  if(karneMudurSub==='teblig')return sub+markaSecici+tebligMudurHtml(marka);
-  return sub+markaSecici+viewKarneMudurGiris(marka);
+  if(perfAcik)return markaSecici+sub+karneDashboardHtml({marka:marka,isAdmin:false});
+  if(karneMudurSub==='dashboard')return markaSecici+sub+karneDashboardHtml({marka:marka,isAdmin:false});
+  if(karneMudurSub==='teblig')return markaSecici+sub+tebligMudurHtml(marka);
+  return markaSecici+sub+viewKarneMudurGiris(marka);
 }
 function viewKarneMudurGiris(marka){
   var roster=karneRoster(marka);
@@ -3242,7 +3318,12 @@ function karneAdminListe(){
    Pano kendi sayfasında çizilir (stil ve kod izolasyonu). Veriyi YALNIZ bu pencereden __perfVeriAl ile alır:
    müdür yalnız kendi markasını (kapsam.satisMarka) alabilir, admin tüm markaları. Firestore'a hiçbir şey yazmaz. */
 function perfYetkiliMarkalar(){
-  if(SES.rol==='mudur')return (''+(SES.marka||'')).split(',').map(function(s){return markaKanonik(s.trim());}).filter(Boolean);
+  if(SES.rol==='mudur'){
+    /* Aynı marka hesapta iki kez yazılmışsa ("CITROEN,Citroen", "BPS,Bmw Ps") tek sayılır → sahte "çok markalı" ekran çıkmaz */
+    var gor={};
+    return (''+(SES.marka||'')).split(',').map(function(s){return markaKanonik(s.trim());}).filter(function(m){
+      if(!m)return false; var k=markaNorm(markaAd(m)); if(gor[k])return false; gor[k]=1; return true;});
+  }
   if(SES.rol==='admin'||SES.rol==='viewer'){var s=new Set((DIM.markalar||[]).slice());(WORK.karneler||[]).forEach(function(k){if(k.marka)s.add(k.marka);});return [...s];}
   return [];
 }
@@ -3253,7 +3334,7 @@ window.__perfVeriAl=function(markaIstek,yilIstek){
   else if(SES.rol==='mudur')marka=(karneMudurMarkaSec&&izinli.indexOf(karneMudurMarkaSec)>=0)?karneMudurMarkaSec:izinli[0];
   else if(karneDashFlt.marka&&izinli.indexOf(karneDashFlt.marka)>=0)marka=karneDashFlt.marka;
   else{var say={};(WORK.karneler||[]).forEach(function(k){say[k.marka]=(say[k.marka]||0)+1;});marka=izinli.slice().sort(function(a,b){return (say[b]||0)-(say[a]||0);})[0];}
-  if(SES.rol==='mudur')karneMudurMarkaSec=marka; else karneDashFlt.marka=marka;
+  if(SES.rol==='mudur'){karneMudurMarkaSec=marka; BUAY_MARKA=marka; mudurSeritIsaretle(marka);} else karneDashFlt.marka=marka;
   var tum=(WORK.karneler||[]).filter(function(k){return k.marka===marka;});
   var yillar=[...new Set(tum.map(function(k){return +k.yil;}))].sort(function(a,b){return a-b;});
   if(!yillar.length)yillar=[new Date().getFullYear()];
@@ -3277,7 +3358,10 @@ window.__perfVeriAl=function(markaIstek,yilIstek){
     return {id:n,ad:n,alt:alt,eski:eski,yeni:yeni,bas:bas,bit:bit};
   }).sort(function(x,y){return (x.eski-y.eski)||x.ad.localeCompare(y.ad,'tr');});
   var metrikler=karneMetrikleri(marka).map(function(m){return {key:m.key,ad:m.ad,kisa:m.kisa||m.ad,tip:m.tip==='ozel'?'ozel':'sayi',birim:m.key==='arac_satis'?'adet':''};});
-  return {marka:marka,markaAd:markaAd(marka),markalar:izinli.map(function(x){return {kod:x,ad:markaAd(x)};}),yil:yil,yillar:yillar,
+  /* Çok markalı müdürde marka geçişi YALNIZ üstteki büyük düğmelerden (mudurMarkaSec): Performans Panosu kendi marka seçicisini
+     göstermez (tek marka gönderilir → kilitli marka etiketi). Aksi halde iframe içinden geçişte üstteki adım şeridi eski markada kalırdı. */
+  var gonderilen=(SES.rol==='mudur'&&izinli.length>1)?[marka]:izinli;
+  return {marka:marka,markaAd:markaAd(marka),markalar:gonderilen.map(function(x){return {kod:x,ad:markaAd(x)};}),yil:yil,yillar:yillar,
     metrikler:metrikler,danlar:danlar,karneler:karneler,aylar:[...new Set(tumAy)].sort(function(a,b){return a-b;}),rol:SES.rol};
 };
 function perfImza(){
@@ -3506,9 +3590,6 @@ function bindKarneDynamic(){
   });
   document.querySelectorAll('[data-gb]').forEach(function(b){
     b.onclick=function(e){e.stopPropagation();var k=karneById(b.dataset.gb);if(k)karneGeriBildirimAc(k);};
-  });
-  document.querySelectorAll('[data-mudurmarka]').forEach(function(c){
-    c.onclick=function(){karneMudurMarkaSec=c.dataset.mudurmarka;karneSel.dan=null;render();};
   });
   document.querySelectorAll('[data-manuelgeri]').forEach(function(b){
     b.onclick=function(e){e.stopPropagation();var p=(b.dataset.manuelgeri||'').split('|');
@@ -3742,9 +3823,9 @@ function bindDynamic(){
     if(MK_SIRA.k===k)MK_SIRA.dir*=-1;else{MK_SIRA.k=k;MK_SIRA.dir=(k==='ad'?1:-1);}render();};
     c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click();}};});
   // müdür "Bu Ay": marka seçimi
-  document.querySelectorAll('[data-buaymarka]').forEach(c=>{c.onclick=()=>{BUAY_MARKA=c.dataset.buaymarka;render();};
-    c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();c.click();}};});
   var bk=document.getElementById('buAyKarne');if(bk)bk.onclick=()=>{TAB='karne';buildTabs();render();};
+  // çok markalı müdür: marka seçim ekranı + büyük geçiş düğmeleri (24.11.2026)
+  document.querySelectorAll('[data-mmsec]').forEach(function(b){b.onclick=function(){mudurMarkaSec(b.dataset.mmsec);};});
   // danisman sort + select
   document.querySelectorAll('th[data-sort]').forEach(t=>t.onclick=()=>{var k=t.dataset.sort;
     if(danSort.k===k)danSort.dir*=-1;else{danSort.k=k;danSort.dir=-1;}render();});
